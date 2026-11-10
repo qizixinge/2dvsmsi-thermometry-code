@@ -67,7 +67,7 @@ end
 PEordernatr=PEorder+Nyo/2+1;% id of Ny
 ctrech=[1 2 3 4];
 imageset=zeros(channel,Nx,Nyo,bins,ave);
-sliceid=[5,3,1,11,9,7,4,0,2,10,6,8];
+sliceid=[5,3,1,11,9,7,4,2,0,10,6,8];   % bin acquisition order of the sequence writers (unused here: MIP/SOS do not depend on bin order)
 
 for id=1:ave
     for bi=1:bins

@@ -21,10 +21,12 @@ data = base/'data'
 out = Path(os.environ.get('VSMSI_OUTPUT_DIR', str(base/'output')))/'results'
 s = loadmat(out/'statistics_results_final.mat', simplify_cells=True)
 checks = []
-def close(name, actual, expected, atol=1e-9):
+def close(name, actual, expected, atol=1e-9, kind='independent'):
+    # kind = 'independent': the expected value is recomputed here from the inputs (log, DICOM bytes, raw ROI means).
+    # kind = 'consistency': a value stored in one file is compared with a copy of the same value in another file.
     err = float(np.max(np.abs(np.asarray(actual)-np.asarray(expected))))
     assert np.allclose(actual, expected, atol=atol, rtol=1e-9), (name,err)
-    checks.append({'check':name,'max_absolute_difference':err})
+    checks.append({'check':name,'max_absolute_difference':err,'kind':kind})
 
 def regression(x,y,common):
     n,k=x.shape
@@ -67,24 +69,31 @@ rows=np.array(rows)
 def winmean(t0,t1):
     a=np.ceil(hms(t0)-51); b=np.floor(hms(t1)-51)
     m=(rows[:,0]>=a)&(rows[:,0]<=b); return rows[m,1:].mean(axis=0)
-g0=hms('17:03:10.285')
-acq1={'temprp1':rows[(rows[:,0]>=np.ceil(g0-51))&(rows[:,0]<=np.floor(g0+27-51)),1:].mean(axis=0),
-      'temp1':winmean('17:08:12.32','17:08:42.00'),'temp3':winmean('17:09:55.46','17:10:45.14')}
-for k_,v_ in acq1.items(): close('Acquisition-1 probe temperature from log: '+k_,np.asarray(r[k_])[0],v_,1e-9)
-close('Acquisition-1 log means (GRE) at 0.01 degC',np.round(acq1['temprp1'],2),[44.67,44.20,44.50,44.90],1e-9)
-close('Acquisition-1 log means (PFA) at 0.01 degC',np.round(acq1['temp1'],2),[44.10,43.43,43.75,44.00],1e-9)
-close('Acquisition-1 log means (Full) at 0.01 degC',np.round(acq1['temp3'],2),[43.81,43.18,43.43,43.68],1e-9)
+# Stated windows (scanner clock): GRE = DICOM AcquisitionTime + 25.4 s (SliceMeasurementDuration); PFA/Full = first to last
+# ADC time stamp of the raw .dat file (twix).  All 9 acquisitions x {GRE, PFA, Full} = 27 windows are recomputed from the log.
+gre_start=['17:03:10.285','17:13:43.26','17:20:26.28','17:26:39.25','17:34:52.31','17:42:56.28','17:49:18.32','17:56:44.30','18:05:09.25']
+pfa_win=[('17:08:12.32','17:08:42.00'),('17:14:16.40','17:14:46.08'),('17:21:00.65','17:21:30.33'),('17:27:12.46','17:27:42.14'),('17:35:27.39','17:35:57.07'),
+         ('17:43:29.43','17:43:59.11'),('17:49:53.43','17:50:23.11'),('17:57:20.43','17:57:50.11'),('18:05:42.38','18:06:12.06')]
+full_win=[('17:09:55.46','17:10:45.14'),('17:16:03.43','17:16:53.11'),('17:22:51.43','17:23:41.11'),('17:29:02.43','17:29:52.11'),('17:37:13.43','17:38:03.11'),
+          ('17:45:16.43','17:46:06.11'),('17:51:45.42','17:52:35.10'),('17:59:07.39','17:59:57.07'),('18:07:26.43','18:08:16.11')]
+GRE_WINDOW_S=25.4
+for k_,wins in (('temprp1',[(g_,'%.3f'%(hms(g_)+GRE_WINDOW_S)) for g_ in gre_start]),('temp1',pfa_win),('temp3',full_win)):
+    for t_,(t0_,t1_) in enumerate(wins):
+        t1n=hms(t1_) if isinstance(t1_,str) and ':' in t1_ else float(t1_)
+        a_=np.ceil(hms(t0_)-51); b_=np.floor(t1n-51)
+        m_=(rows[:,0]>=a_)&(rows[:,0]<=b_); assert m_.sum()>=20,(k_,t_,int(m_.sum()))
+        close('Probe temperature from log, acquisition %d, %s'%(t_+1,k_),np.asarray(r[k_])[t_],rows[m_,1:].mean(axis=0),1e-9)
 g=loadmat(data/'phaseMAPr_and_magmap.mat',simplify_cells=True)
 with h5py.File(data/'T2MAP_and_img4i_native100.mat') as h:
     mip=np.asarray(h['T2MAP']).transpose(3,2,1,0)
     sos=np.asarray(h['T2MAPsos']).transpose(3,2,1,0)
 legacy=np.asarray(r['ROI_2DVSMSI_100'],dtype=int)
-close('Fixed PFA coordinate transform',s['C2D'],legacy+[0,1])
-close('Full ROI coordinates unchanged',s['C2D_full'],legacy)
+close('Fixed PFA coordinate transform',s['C2D'],legacy+[0,1],kind='consistency')
+close('Full ROI coordinates unchanged',s['C2D_full'],legacy,kind='consistency')
 for idx,vol,variant,coords in [(1,sos,0,legacy+[0,1]),(2,sos,2,legacy),(3,mip,0,legacy+[0,1]),(4,mip,2,legacy)]:
     means=np.column_stack([vol[row-2:row+1,col-2:col+1,:,variant].mean(axis=(0,1)) for row,col in coords])
     close(f'Input ROI extraction {cfg[idx][2]}',cfg[idx][0],means-means.mean(axis=0))
-    close(f'Probe-temperature arrays (acquisition-window log means) {cfg[idx][2]}',cfg[idx][1],r['temp1' if variant==0 else 'temp3'])
+    close(f'Probe-temperature arrays (acquisition-window log means) {cfg[idx][2]}',cfg[idx][1],r['temp1' if variant==0 else 'temp3'],kind='consistency')
 phase=np.unwrap(g['phaseMAPr'],axis=2)
 dphase=phase-phase.mean(axis=2,keepdims=True)
 oil=np.logical_or.reduce([r['oil'+str(i)].astype(bool) for i in range(1,5)])
@@ -164,7 +173,7 @@ for name,ba,d in [('PFA',s['BA1'],s['dT_pfa']),('Full',s['BA2'],s['dT_full'])]:
 assert int(s['NB'])==20000 and int(s['SEED'])==20260830
 assert int(s['n_vox'])==240 and int(s['n_pairs'])==240*7==1680
 assert not any('sd_noise' in p for p in s['POOL'])
-checks.append({'check':'seed, replicate count, pair count and noise-only removal','passed':True})
+checks.append({'check':'seed, replicate count, pair count and noise-only removal','passed':True,'kind':'consistency'})
 
 # ---- reference invariance: dT2/ds referenced to time points 3-9 instead of all nine
 for i,row in enumerate(cfg):
@@ -185,14 +194,14 @@ for i,row in enumerate(cfg):
     close(f'{name}: LOOCV predictions unchanged by the 3-9 reference',pred,pred_alt,1e-9)
 rc=s['ref_check']
 assert max(np.max(rc['max_slope_diff']),np.max(rc['max_loocv_diff']))<1e-7
-checks.append({'check':'MATLAB reference-invariance diagnostics (slopes/F/LOOCV, all-nine vs 3-9 reference) below tolerance','passed':True})
+checks.append({'check':'MATLAB reference-invariance diagnostics (slopes/LOOCV, all-nine vs 3-9 reference) below tolerance','passed':True,'kind':'consistency'})
 
 # ---- every LaTeX macro equals the value recomputed here / stored in the .mat
 RN=['I','II','III','IV']; K5=['Gre','PfaSos','FullSos','PfaMip','FullMip']; K4=K5[1:]
 E={}
 def put(name,fmt,val): E[name]=fmt%val
 TT=np.concatenate([np.asarray(r[k_]).ravel() for k_ in ('temprp1','temp1','temp3')])
-put('BZero','%.2f',E_B0[0]); put('FZeroMHz','%.2f',E_B0[1]); put('GammaBar','%.3f',E_B0[2])
+put('GreWinSec','%.1f',GRE_WINDOW_S); put('GreScanSec','%.0f',27); put('BZero','%.2f',E_B0[0]); put('FZeroMHz','%.2f',E_B0[1]); put('GammaBar','%.3f',E_B0[2])
 put('TempMin','%.1f',TT.min()); put('TempMax','%.1f',TT.max()); put('TempSpan','%.1f',TT.max()-TT.min())
 put('CoolMin','%.0f',(np.max(r['scan_end_s'])-np.min(r['scan_start_s']))/60)
 put('TempStep','%.2f',np.mean(-np.diff(np.hstack([r['temprp1'],r['temp1'],r['temp3']]),axis=0)))
@@ -202,7 +211,7 @@ put('NumPredRoi','%d',NTP*4)
 put('NumBaTp','%d',7); E['NumBaTpWord']='seven'; put('BaFirstTp','%d',3); put('BaLastTp','%d',9)
 put('NumPairs','%d',int(s['n_pairs'])); put('NumBoxVox','%d',int(s['n_vox']))
 put('TpCmp','%d',3); E['TpCmpWord']='three'
-gap=np.asarray(r['gre_to_pfa_gap_s']); gap2=r['scan_start_s'][:,1]-r['scan_start_s'][:,0]; close('GRE->PFA gap from scan times',gap,gap2)
+gap=np.asarray(r['gre_to_pfa_gap_s']); gap2=r['scan_start_s'][:,1]-r['scan_start_s'][:,0]; close('GRE->PFA gap from scan times',gap,gap2,kind='consistency')
 put('GapOneSec','%.0f',gap[0]); put('GapOneMin','%.1f',gap[0]/60); put('GapOtherMinSec','%.0f',gap[1:].min()); put('GapOtherMaxSec','%.0f',gap[1:].max())
 put('WinRangeMax','%.2f',r['win_range_max']); put('WinDevMax','%.2f',r['win_dev_max'])
 for k_ in range(4): put('Dist'+RN[k_],'%.0f',s['dist_mm'][k_])
@@ -284,6 +293,44 @@ for nm_,A in TA.items():
     put('TcmpMin'+nm_,'%.1f',A[2].min()); put('TcmpMax'+nm_,'%.1f',A[2].max()); put('Tref'+nm_,'%.1f',TR[nm_])
     close('Tref '+nm_+' = mean over time points 3-9 of all ROIs',TR[nm_],A[2:9].mean())
 for nm_,v_ in zip(['Pfa','Full','Gre'],np.asarray(s['thr_pct'])): put('ThrPct'+nm_,'%.0f',v_)
+# ---- secondary metrics added 2026-11-10: common-coefficient LOOCV, bootstrap intervals, in-sample SD, cooling rate
+CIDX=[1,2,3,4]
+common_e={}
+for q_,idx in enumerate(CIDX):
+    y,x,name=cfg[idx]; y=np.asarray(y); x=np.asarray(x); e=np.empty_like(y)
+    for t in range(NTP):
+        tr=np.arange(NTP)!=t
+        beta,_=regression(x[tr],y[tr],True)          # ROI intercepts + one common slope, refitted without time point t
+        e[t]=(y[t]-beta[:4])/beta[-1]-x[t]
+    common_e[q_]=e
+    close('%s: common-coefficient LOOCV errors'%name,np.asarray(s['common_errors'])[:,:,q_],e,1e-8)
+    for k_ in range(4): put('RmseCommon'+K4[q_]+RN[k_],'%.2f',np.sqrt(np.mean(e[:,k_]**2)))
+    put('RmsOverallCommon'+K4[q_],'%.2f',np.sqrt(np.mean(e**2)))
+sets={'GreRemote':IND[0][:,[0,3]],'GreNear':IND[0][:,[1,2]],'PfaSos':IND[1],'FullSos':IND[2],'PfaMip':IND[3],'FullMip':IND[4],
+      'CommonPfaSos':common_e[0],'CommonFullSos':common_e[1],'CommonPfaMip':common_e[2],'CommonFullMip':common_e[3]}
+assert list(s['boot_names'])==list(sets),'bootstrap set order changed'
+rng_=np.random.default_rng(20260830)
+for q_,(nm_,E_) in enumerate(sets.items()):
+    ix_=rng_.integers(0,NTP,size=(20000,NTP)); bs_=np.sqrt(np.mean(E_[ix_]**2,axis=(1,2)))
+    ci_=np.quantile(bs_,[.025,.975],method='hazen')
+    # numpy's random stream differs from MATLAB's: agreement is approximate (Monte Carlo error of a 20000-draw percentile)
+    close('Overall LOOCV RMSE interval, %s (independent numpy bootstrap, tolerance 0.03 degC)'%nm_,np.asarray(s['boot_ci'])[q_],ci_,0.03)
+    close('Overall LOOCV RMSE point value, %s'%nm_,np.asarray(s['boot_rmse'])[q_],np.sqrt(np.mean(E_**2)),1e-8)
+    put('RmsBoot'+nm_,'%.2f',np.sqrt(np.mean(E_**2)))
+    put('RmsBootLo'+nm_,'%.2f',np.asarray(s['boot_ci'])[q_][0]); put('RmsBootHi'+nm_,'%.2f',np.asarray(s['boot_ci'])[q_][1])
+sdfit=np.empty((5,4))
+for m_,row in enumerate(cfg):
+    y,x,name=row; y=np.asarray(y); x=np.asarray(x)
+    for k_ in range(4):
+        sl_,ic_=np.polyfit(x[:,k_],y[:,k_],1); sdfit[m_,k_]=np.std((y[:,k_]-ic_)/sl_-x[:,k_],ddof=1)   # in-sample SD, N-1
+close('In-sample SD of (fit-derived minus probe temperature), per-ROI fits',np.asarray(s['sd_fit_roi']),sdfit,1e-8)
+put('SdFitPfaSosMin','%.2f',sdfit[1].min()); put('SdFitPfaSosMax','%.2f',sdfit[1].max())
+put('SdFitFullSosMin','%.2f',sdfit[2].min()); put('SdFitFullSosMax','%.2f',sdfit[2].max())
+put('SdFitSosMin','%.2f',sdfit[1:3].min()); put('SdFitSosMax','%.2f',sdfit[1:3].max())
+put('SdFitGreRemoteMin','%.2f',sdfit[0,[0,3]].min()); put('SdFitGreRemoteMax','%.2f',sdfit[0,[0,3]].max())
+cool_min=(np.max(r['scan_end_s'])-np.min(r['scan_start_s']))/60
+put('CoolRate','%.2f',(TT.max()-TT.min())/cool_min); put('CoolFiveMin','%.1f',5*(TT.max()-TT.min())/cool_min)
+
 # satellite files (written by supporting scripts) against their own result files
 nd=loadmat(data/'noise_dependence_summary.mat',simplify_cells=True)
 if int(nd.get('tp',0))==3:
@@ -306,8 +353,8 @@ if gs.exists():
     for k_ in range(4): put('GreSensAlpha'+RN[k_],'%.3f',al[k_]); put('GreSensRmse'+RN[k_],'%.2f',rs[k_])
     put('GreSensRmseNearMin','%.2f',rs[[1,2]].min()); put('GreSensRmseNearMax','%.2f',rs[[1,2]].max())
     put('GreSensAlphaRemote','%.3f',al[[0,3]].mean()); put('GreSensAlphaRemoteTwo','%.2f',al[[0,3]].mean())
-    close('GRE sensitivity primary set equals the main analysis (all nine time points)',np.asarray(q['alpha'])[0]*1e8,alpha,1e-9)
-    close('GRE sensitivity primary LOOCV RMSE equals the main analysis',np.asarray(q['rmse'])[0],s['loocv_rmse'][0],1e-9)
+    close('GRE sensitivity primary set equals the main analysis (all nine time points)',np.asarray(q['alpha'])[0]*1e8,alpha,1e-9,kind='consistency')
+    close('GRE sensitivity primary LOOCV RMSE equals the main analysis',np.asarray(q['rmse'])[0],s['loocv_rmse'][0],1e-9,kind='consistency')
 
 def read_macros(path,seen=None):
     seen=seen if seen is not None else set(); path=Path(path)
@@ -336,7 +383,10 @@ unchecked=[k_ for k_ in mac if k_[1:] not in E]
 assert not unchecked,('macros without a recomputation in verify_statistics.py. Fix: add them to the macro block',unchecked[:20])
 missing=[k_ for k_ in E if 'n'+k_ not in mac]
 assert not missing,('expected macros missing from numbers*.tex. Fix: rerun statistics_analysis_final.m and the supporting scripts',missing[:20])
-checks.append({'check':'%d LaTeX macros equal independently recomputed / stored values'%len(mac),'passed':True})
+checks.append({'check':'%d LaTeX macros equal recomputed / stored values'%len(mac),'passed':True,'kind':'consistency'})
 report={'passed':len(checks),'checks':checks,'scope':'Independent least-squares LOOCV, per-ROI slopes and R2, stored cluster resamples (common-slope CI and paired PFA-Full difference), B0 from the DICOM header and BA identities.'}
 (out/'statistics_independent_verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
-print(f'PASS: {len(checks)} independent numerical checks')
+n_ind=sum(1 for c_ in checks if c_.get('kind','independent')=='independent'); n_con=len(checks)-n_ind
+report['independently_recomputed']=n_ind; report['consistency']=n_con
+(out/'statistics_independent_verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+print(f'PASS: {n_ind} independently recomputed checks + {n_con} consistency checks (value copied between files)')

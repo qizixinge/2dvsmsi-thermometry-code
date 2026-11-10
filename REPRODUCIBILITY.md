@@ -8,7 +8,7 @@ The analysis concerns one agar phantom containing one titanium rod and one conti
 
 GRE PRF conversion: the phase series is the scanner's phase-difference image of the dual-echo `gre_field_mapping` scan (echoes at 5.00 and 7.46 ms, DICOM EchoNumber 2), so the effective echo-time difference is 2.46 ms. It is defined once in `code/gre_params.m` and used by all PRF code. B0 is the DICOM ImagingFrequency (123.251054 MHz) divided by the proton gamma-bar (42.577478 MHz/T), i.e. 2.8947 T, not the nominal 3 T.
 
-The probe arrays used by the analysis are the mean of the 1 Hz fluoroptic log (`data/probe_log_20250425.csv`) over each scan's data-acquisition window (PFA/Full: first to last ADC time stamp, dummy scans excluded; GRE: DICOM start + 27 s), with the measured 51 s thermometer-versus-scanner clock offset corrected, computed by `code/build_probe_temperatures.m`. Probe temperatures span 36.8-44.9 C over about 65 min.
+The probe arrays used by the analysis are the mean of the 1 Hz fluoroptic log (`data/probe_log_20250425.csv`) over each scan's data-acquisition window (PFA/Full: first to last ADC time stamp, dummy scans excluded; GRE: DICOM AcquisitionTime + 25.4 s, the DICOM SliceMeasurementDuration; the protocol's total scan time of 27 s includes preparation and is not the data window), with the measured 51 s thermometer-versus-scanner clock offset corrected, computed by `code/build_probe_temperatures.m`. Probe temperatures span 36.8-44.9 C over about 65 min.
 
 Four ROIs were positioned adjacent to the fluoroptic probes on the native grid of each modality. Calibration and LOOCV use these observations from the same series. They quantify internal calibration behaviour and held-out-time-point prediction within that series; they are not independent external validation. No repeat heating experiment, tissue cohort, in-vivo experiment or external test set is included.
 
@@ -97,18 +97,26 @@ See the table in `README.md`. Every result number in the paper is a LaTeX macro 
 
 `statistics_analysis_final.m` performs per-ROI calibration, descriptive between-ROI spread (coefficient of variation) of the calibration coefficients, time-point-cluster bootstrap confidence intervals, within-series LOOCV, a paired PFA-Full difference with a cluster-bootstrap interval, and defined cross-modality agreement summaries. No F tests or power analysis are used.
 
-- ROI-specific LOOCV refits one calibration per ROI while holding out one time point.
-- The RMS across the four ROI-specific LOOCV RMSE values is an aggregate. It is neither a maximum error nor the error of a predictor using a common slope.
+- ROI-specific LOOCV (the primary metric) refits one calibration (own slope and intercept) per ROI while holding out one time point. The secondary common-coefficient LOOCV refits the model that produces the temperature maps (one common slope plus ROI intercepts) in every fold; the 95% intervals of the overall LOOCV RMSE are cluster bootstraps over whole time points (9 clusters, approximate, may be narrow).
+- The overall RMSE across the four ROI-specific LOOCV RMSE values is an aggregate. It is neither a maximum error nor the error of a predictor using a common slope (see the common-coefficient LOOCV for that).
 - Bootstrap resampling keeps the observations of a time point together across ROIs; it does not create independent phantom repetitions.
 - Display interpolation does not turn the native-grid measurements into an independent higher-resolution data set.
 - The fixed 10-pixel border used by RDNLS for thresholding is not translation-invariant; this does not affect any ROI.
+
+## Scripts that overwrite derived files
+
+Three scripts write into `data/` in place; keep a copy of `data/` before rerunning them:
+
+- `code/build_probe_temperatures.m` overwrites `data/ROI_and_tempr_resolved.mat` (probe arrays, scan times, window statistics; the hand-recorded arrays are kept as `*_manual`).
+- `code/supporting_analyses/rev_write_dependence_summary.m` overwrites `data/noise_dependence_summary.mat` and `numbers_snr.tex`; run it only after the pseudo-replica scripts (raw data needed).
+- `code/reconstruct_all.m` overwrites `data/T2MAP_and_img4i_native100.mat` (Part A, needs raw .dat files) and `data/phaseMAPr_and_magmap.mat` (Part B, needs only the phase DICOM files in `data/`; set the environment variable `VSMSI_PART_B_ONLY=1` to skip Part A). Part B uses the fixed DICOM rescale (RescaleSlope 2, RescaleIntercept -4096, phase = value/4096*pi), read and asserted per file.
 
 ## Output review checklist
 
 After any reconstruction, ROI, temperature-array or statistics change:
 
 - `output/results/statistics_results_final.txt/.mat` and `numbers*.tex` were regenerated;
-- `py -3.12 -I tests/verify_statistics.py` passes;
+- `py -3.12 -I tests/verify_statistics.py` passes (125 independently recomputed + 12 consistency checks);
 - figures were regenerated;
 - probe temperatures are the 1 Hz log means over each scan's acquisition window with the 51 s offset corrected;
 - no claim describes within-series LOOCV as independent validation.

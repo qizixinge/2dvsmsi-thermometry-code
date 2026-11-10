@@ -11,6 +11,8 @@ function g = gre_params()
 %            scanner's own flMagneticFieldStrength entry (2.8936 T) is not used.
 %   g.gamma  gyromagnetic ratio (rad/s/T)
 %   g.dTE    effective echo-time difference (s)
+%   g.window_s  data-acquisition duration (s): DICOM private header SliceMeasurementDuration = 25400 ms (TA 25.40 s)
+%   g.scan_s    protocol total scan time (s): ASCCONV lTotalScanTimeSec = 27 (includes preparation cycles)
 %   g.lam    B0*gamma*dTE (rad per unit chemical-shift change, i.e. phase = -lam * delta_s)
 g.gamma_bar_MHz_T = 42.577478;                  % proton gyromagnetic ratio / 2pi, MHz/T
 g.f0_MHz = 123.251054;                          % ImagingFrequency, DICOM tag (0018,0084)
@@ -18,4 +20,6 @@ g.B0 = g.f0_MHz/g.gamma_bar_MHz_T;
 g.gamma = 2*pi*g.gamma_bar_MHz_T*1e6;
 g.dTE = (7460 - 5000)*1e-6;
 g.lam = g.B0*g.gamma*g.dTE;
+g.window_s = 25.4;
+g.scan_s = 27;
 end

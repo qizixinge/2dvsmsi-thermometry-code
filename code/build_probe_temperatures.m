@@ -8,7 +8,7 @@
 % window.  Windows (scanner clock, 2025-04-25, acquisitions 1-9 = time points 1-9):
 %   PFA / Full : first to last ADC time stamp of the raw .dat file
 %                (PFA 29.7 s, Full 49.7 s)
-%   GRE/PRF    : DICOM AcquisitionTime + TotalScanTimeSec (27 s)
+%   GRE/PRF    : DICOM AcquisitionTime + SliceMeasurementDuration (25.4 s)
 % The thermometer clock ran 51 s behind the scanner clock (thermometer 90 s
 % and scanner 39 s behind the same phone clock, both checked by the author),
 % so every scanner time is shifted by -51 s before indexing the log.  The
@@ -26,8 +26,9 @@
 % = GRE, PFA, Full), gre_to_pfa_gap_s, and the within-window probe statistics
 % quoted in the paper (win_range_max, win_dev_max).
 %
-% Run once after changing the time-point selection; statistics_analysis_final.m
-% then reads the updated arrays.
+% WARNING: this script OVERWRITES data/ROI_and_tempr_resolved.mat in place (temp1, temp3, temprp1, scan
+% times, window statistics; the hand-recorded arrays are kept as *_manual).  Run it once after changing
+% the time-point selection or a window; statistics_analysis_final.m then reads the updated arrays.
 
 clear;
 project = project_paths();
@@ -45,7 +46,11 @@ hms = @(s) [3600 60 1]*sscanf(s,'%d:%d:%f');
 % acquisitions 1-9, cooling order
 gre_start = {'17:03:10.285','17:13:43.26','17:20:26.28','17:26:39.25','17:34:52.31', ...
              '17:42:56.28','17:49:18.32','17:56:44.30','18:05:09.25'};
-gre_dur   = 27;
+% GRE data-acquisition window: the DICOM private header gives SliceMeasurementDuration = 25400 ms (TA 25.40 s).
+% The protocol's lTotalScanTimeSec = 27 s also contains preparation (dummy cycles); it cannot be the data window,
+% because every GRE image was written (DICOM ContentTime) only 25.8-26.5 s after its AcquisitionTime.
+% Before 2026-11-10 the window was 27 s; the change moves the GRE probe means by < 0.02 degC.
+gre_dur   = gre_params().window_s;   % 25.4 s
 pfa_win   = {'17:08:12.32','17:08:42.00'; '17:14:16.40','17:14:46.08'; '17:21:00.65','17:21:30.33'; ...
              '17:27:12.46','17:27:42.14'; '17:35:27.39','17:35:57.07'; ...
              '17:43:29.43','17:43:59.11'; '17:49:53.43','17:50:23.11'; ...

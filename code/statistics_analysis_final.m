@@ -41,7 +41,13 @@
 %     first-time-point 16 ms SOS magnitude (3 x the maximum of the 10-pixel
 %     edge band); GRE uses its own magnitude. Previously the PFA value was
 %     applied to both 2DVSMSI variants. The masks affect display and the
-%     Bland-Altman voxel selection only.
+%     Bland-Altman voxel selection only.%
+% REVISION 2026-11-10 (second audit round)
+%   * S2b: secondary common-coefficient LOOCV (the model used for the maps), 95% cluster-bootstrap intervals
+%     of the overall LOOCV RMSE, in-sample SD of (fit-derived - probe temperature) per ROI (Weber et al. 2017
+%     definition) and the cooling rate; all written as macros.
+%   * GRE phase uses the fixed DICOM rescale (reconstruct_all.m Part B); GRE probe window 25.4 s.
+
 %
 % REVISION 2026-11-05 (nine time points, LaTeX macros)
 %   * Time points 1-9 = acquisitions 1-9 of 2025-04-25 (acquisition 1 re-included;
@@ -346,6 +352,47 @@ end
 fprintf('%-9s %8s %8s %8s %8s   RMS\n','LOOCV RMSE','ROI I','ROI II','ROI III','ROI IV');
 for m = 1:n_m
     fprintf('%-9s %8.2f %8.2f %8.2f %8.2f  %6.2f\n', loocv_cfg{m}{3}, loocv_rmse(m,:), sqrt(mean(loocv_rmse(m,:).^2)));
+end
+
+% ---- S2b  secondary metrics: common-coefficient LOOCV, bootstrap intervals, in-sample SD ----
+% (i) Common-coefficient LOOCV: each fold refits the model that produced the temperature maps (one common slope plus
+%     ROI intercepts) on the other time points.  Computed for the SOS variants and, to show why it is not used, MIP.
+% (ii) 95% cluster-bootstrap intervals for the overall LOOCV RMSE (whole time points of the held-out errors resampled,
+%     NB draws, rng(SEED), randi(n,n,1) per draw: same convention as the slope bootstrap).
+% (iii) In-sample SD of (calibration-fit temperature - probe temperature) per ROI, N-1 normalisation, the quantity
+%     Weber et al. 2017 call thermometry uncertainty.  SOS: the common-slope fit used for the maps; GRE: per-ROI fit.
+fprintf('\n---- S2b common-coefficient LOOCV, bootstrap intervals, in-sample SD ----\n');
+common_idx = [2 3 4 5];                       % PFA-SOS, Full-SOS, PFA-MIP, Full-MIP
+common_errors = zeros(n_tp,n_roi,numel(common_idx));
+common_rmse = zeros(numel(common_idx),n_roi);
+for q = 1:numel(common_idx)
+    common_errors(:,:,q) = loocv_common(loocv_cfg{common_idx(q)}{1}, loocv_cfg{common_idx(q)}{2});
+    common_rmse(q,:) = sqrt(mean(common_errors(:,:,q).^2,1));
+    fprintf('%-9s common-coef LOOCV RMSE %s  overall %.2f   (per-ROI-calibration overall %.2f)\n', loocv_cfg{common_idx(q)}{3}, ...
+        sprintf('%.2f ',common_rmse(q,:)), sqrt(mean(common_rmse(q,:).^2)), sqrt(mean(loocv_rmse(common_idx(q),:).^2)));
+end
+% intervals: GRE remote (ROIs I, IV), GRE near (II, III), four variants (all ROIs), four common-coefficient variants
+boot_sets = {loocv_errors(:,[1 4],1), loocv_errors(:,[2 3],1), loocv_errors(:,:,2), loocv_errors(:,:,3), loocv_errors(:,:,4), loocv_errors(:,:,5), ...
+             common_errors(:,:,1), common_errors(:,:,2), common_errors(:,:,3), common_errors(:,:,4)};
+boot_names = {'GreRemote','GreNear','PfaSos','FullSos','PfaMip','FullMip','CommonPfaSos','CommonFullSos','CommonPfaMip','CommonFullMip'};
+boot_rmse = zeros(numel(boot_sets),1);  boot_ci = zeros(numel(boot_sets),2);
+for q = 1:numel(boot_sets)
+    boot_rmse(q) = sqrt(mean(boot_sets{q}.^2,'all'));
+    boot_ci(q,:) = boot_rmse_ci(boot_sets{q}, NB, SEED);
+    fprintf('overall LOOCV RMSE %-14s %.2f  95%% cluster-bootstrap CI [%.2f, %.2f]\n', boot_names{q}, boot_rmse(q), boot_ci(q,:));
+end
+% in-sample SD of fit-derived minus probe temperature
+sd_fit_roi = zeros(n_m,n_roi);         % per-ROI fit (every variant)
+sd_fit_common = zeros(n_m,n_roi);      % common-slope fit (all but GRE)
+for m = 1:n_m
+    Yq = loocv_cfg{m}{1}; Tq = loocv_cfg{m}{2};
+    [slq,mcq] = common_fit(Yq,Tq);
+    for k = 1:n_roi
+        yc = Yq(:,k)-mean(Yq(:,k));  tc = Tq(:,k)-mean(Tq(:,k));
+        sd_fit_roi(m,k)    = std(yc/slq(k) - tc);
+        sd_fit_common(m,k) = std(yc/mcq - tc);
+    end
+    fprintf('%-9s in-sample SD (per-ROI fit) %s | (common fit) %s\n', loocv_cfg{m}{3}, sprintf('%.2f ',sd_fit_roi(m,:)), sprintf('%.2f ',sd_fit_common(m,:)));
 end
 
 %% ========================================================================
@@ -766,6 +813,7 @@ allT = [temprp1(:); temp1(:); temp3(:)];
 cool_min = (max(R.scan_end_s(:)) - min(R.scan_start_s(:)))/60;    % first scan start -> last scan end
 temp_step = mean(-diff([temprp1 temp1 temp3],1,1),'all');          % mean step between consecutive time points
 gp_b = gre_params();   % B0 from the DICOM ImagingFrequency (gre_params.m)
+M = addm(M,'GreWinSec','%.1f',gp_b.window_s);  M = addm(M,'GreScanSec','%.0f',gp_b.scan_s);   % GRE data window (DICOM SliceMeasurementDuration) / protocol total scan time
 M = addm(M,'BZero','%.2f',gp_b.B0);  M = addm(M,'FZeroMHz','%.2f',gp_b.f0_MHz);  M = addm(M,'GammaBar','%.3f',gp_b.gamma_bar_MHz_T);
 M = addm(M,'TempMin','%.1f',min(allT));   M = addm(M,'TempMax','%.1f',max(allT));
 M = addm(M,'TempSpan','%.1f',max(allT)-min(allT));
@@ -800,6 +848,22 @@ end
 M = addm(M,'AlphaGreRemote','%.3f',mean(ALPHA_PAPER([1 4]))*1e8);
 M = addm(M,'AlphaGreRemoteTwo','%.2f',mean(ALPHA_PAPER([1 4]))*1e8);
 for m = 1:n_m, M = addm(M,['RmsOverall' key5{m}],'%.2f',sqrt(mean(loocv_rmse(m,:).^2))); end
+for q = 1:4
+    for k = 1:4, M = addm(M,['RmseCommon' key4{q} roiN{k}],'%.2f',common_rmse(q,k)); end
+    M = addm(M,['RmsOverallCommon' key4{q}],'%.2f',sqrt(mean(common_rmse(q,:).^2)));
+end
+for q = 1:numel(boot_names)
+    M = addm(M,['RmsBoot' boot_names{q}],'%.2f',boot_rmse(q));
+    M = addm(M,['RmsBootLo' boot_names{q}],'%.2f',boot_ci(q,1));  M = addm(M,['RmsBootHi' boot_names{q}],'%.2f',boot_ci(q,2));
+end
+% Weber-style thermometry uncertainty: in-sample SD of (fit-derived - probe temperature)
+sd_fit_SOSPFA_ = sd_fit_roi(2,:);  sd_fit_SOSFULL_ = sd_fit_roi(3,:);   % per-ROI calibration fit, as in Weber et al. 2017
+M = addm(M,'SdFitPfaSosMin','%.2f',min(sd_fit_SOSPFA_));  M = addm(M,'SdFitPfaSosMax','%.2f',max(sd_fit_SOSPFA_));
+M = addm(M,'SdFitFullSosMin','%.2f',min(sd_fit_SOSFULL_)); M = addm(M,'SdFitFullSosMax','%.2f',max(sd_fit_SOSFULL_));
+M = addm(M,'SdFitSosMin','%.2f',min([sd_fit_SOSPFA_ sd_fit_SOSFULL_]));  M = addm(M,'SdFitSosMax','%.2f',max([sd_fit_SOSPFA_ sd_fit_SOSFULL_]));
+M = addm(M,'SdFitGreRemoteMin','%.2f',min(sd_fit_roi(1,[1 4])));  M = addm(M,'SdFitGreRemoteMax','%.2f',max(sd_fit_roi(1,[1 4])));
+M = addm(M,'CoolRate','%.2f',(max(allT)-min(allT))/cool_min);              % degC per min, temperature span / cooling duration
+M = addm(M,'CoolFiveMin','%.1f',5*(max(allT)-min(allT))/cool_min);         % change during a 5 min T1 map
 M = addm(M,'RmseMinSos','%.2f',min(loocv_rmse(2:3,:),[],'all'));  M = addm(M,'RmseMaxSos','%.2f',max(loocv_rmse(2:3,:),[],'all'));
 M = addm(M,'RmseMinMip','%.2f',min(loocv_rmse(4:5,:),[],'all'));  M = addm(M,'RmseMaxMip','%.2f',max(loocv_rmse(4:5,:),[],'all'));
 M = addm(M,'RmseGreRemoteMin','%.2f',min(loocv_rmse(1,[1 4])));   M = addm(M,'RmseGreRemoteMax','%.2f',max(loocv_rmse(1,[1 4])));
@@ -868,7 +932,7 @@ save(fullfile(OUT_DIR,'statistics_results_final.mat'), ...
     'BA1','BA2','n_pairs','BOX_ROWS_128','BOX_COLS_128', ...
     'T_pfa','T_full','T_prf','dT_pfa','dT_full','dT_prf', ...
     'mk_pfa','mk_full','mk_prf','Tref_pfa','Tref_full','Tref_prf','SEED','NB','TP_CMP','BA_TPS','BA_tp','n_vox','DEM_pfa','DEM_pfa_ci','DEM_full','DEM_full_ci', ...
-    'thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_');
+    'common_rmse','common_errors','boot_names','boot_rmse','boot_ci','sd_fit_roi','sd_fit_common','thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_');
 fprintf('\nwrote TBME figures to\n  %s\nand statistics_results_final.txt / .mat to\n  %s\n', FIG_DIR, OUT_DIR);
 
 %% ========================================================================
@@ -932,6 +996,28 @@ for k = 1:size(Tp,2)
         e(lo,k) = (MNS(lo,k) - mean(MNS(tr,k)))/bt + mean(Tp(tr,k)) - Tp(lo,k);
     end
 end
+end
+
+function e = loocv_common(Y, X)
+% Leave-one-time-point-out errors (estimated - probe) with the common-slope model (one slope for all ROIs,
+% ROI-specific intercepts) refitted on the training time points of every fold.  n_tp x n_roi.
+n_ = size(X,1);  e = zeros(size(X));
+for lo = 1:n_
+    tr = setdiff(1:n_, lo);
+    xt = X(tr,:) - mean(X(tr,:),1);  yt = Y(tr,:) - mean(Y(tr,:),1);
+    bc = sum(xt.*yt,'all')/sum(xt.^2,'all');
+    e(lo,:) = (Y(lo,:) - mean(Y(tr,:),1))/bc + mean(X(tr,:),1) - X(lo,:);
+end
+end
+
+function ci = boot_rmse_ci(E, NB, seed)
+% 95% percentile interval of the overall RMSE of held-out errors E (n_tp x n_roi), resampling whole time points.
+rng(seed); n = size(E,1); bs = zeros(NB,1);
+for b = 1:NB
+    ix = randi(n,n,1);
+    bs(b) = sqrt(mean(E(ix,:).^2,'all'));
+end
+ci = quantile(bs,[0.025 0.975]);
 end
 
 function value = magnitude_snr(im,rows,cols,background_indices)
@@ -1058,7 +1144,7 @@ for r = 1:nr
         axes(axk);
         yl = ylim;
         text(36.3, yl(1)+0.06*diff(yl), ...
-            sprintf('pooled m_{2,app} = %.3f [%.3f, %.3f] ms/\\circC', pi_.pooled, pi_.ci), ...
+            sprintf('common m_{2,app} = %.3f [%.3f, %.3f] ms/\\circC', pi_.pooled, pi_.ci), ...
             'FontSize',7.5,'VerticalAlignment','bottom','Interpreter','tex');
     end
 end

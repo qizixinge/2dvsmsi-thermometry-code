@@ -48,6 +48,10 @@ then in a shell:
 py -3.12 -I tests/verify_statistics.py     # independent check of the MATLAB results
 ```
 
+It prints "PASS: 125 independently recomputed checks + 12 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
+
+Three scripts overwrite derived files in `data/` in place (`code/build_probe_temperatures.m`, `code/supporting_analyses/rev_write_dependence_summary.m`, `code/reconstruct_all.m`); see REPRODUCIBILITY.md, section "Scripts that overwrite derived files", and keep a copy of `data/` before rerunning them.
+
 MATLAB tests: `runtests('tests')`.
 
 ### Output convention
@@ -71,7 +75,7 @@ Every result number in the paper is a LaTeX macro written by the code (`numbers.
 | Readout field of view (265.8 mm) | `rev_readout_fov.m` (Pulseq; `.seq` files written by `sequence/`) | console output, `output/supporting/readout_fov.mat` |
 | Fig. 1 (photograph), Fig. 2 (drawing) | not code outputs | not included |
 
-Analysis conventions in brief: nine time points; calibration and LOOCV use all nine; temperature-change maps and Bland-Altman analyses use time points 3-9; uncertainty is descriptive (coefficient of variation) with cluster-bootstrap confidence intervals; the PFA-Full difference is a paired comparison; B0 for the PRF conversion comes from the DICOM header (ImagingFrequency 123.251054 MHz); the GRE echo-time difference is 2.46 ms (`code/gre_params.m`). See `REPRODUCIBILITY.md`.
+Analysis conventions in brief: nine time points; calibration and LOOCV use all nine; temperature-change maps and Bland-Altman analyses use time points 3-9; uncertainty is descriptive (coefficient of variation) with cluster-bootstrap confidence intervals, including intervals of the overall LOOCV RMSE; the primary LOOCV calibrates each ROI separately and a secondary common-coefficient LOOCV (the model used for the maps) is also reported; the PFA-Full difference is a paired comparison; B0 for the PRF conversion comes from the DICOM header (ImagingFrequency 123.251054 MHz); the GRE echo-time difference is 2.46 ms (`code/gre_params.m`). See `REPRODUCIBILITY.md`.
 
 ## Repository layout
 

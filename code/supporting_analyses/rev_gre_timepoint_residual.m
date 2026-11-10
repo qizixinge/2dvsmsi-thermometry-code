@@ -6,6 +6,7 @@
 % the GRE magnitude, oil bottles excluded).  Prints one SD per time point and
 % writes gre_timepoint_residual.mat to VSMSI_REV_DIR (or ./out) and the macros to
 % output/results/numbers_gre_residual.tex.
+% The trend is linear in the actual acquisition time (not in the time-point index).
 % Second variant (resid_sd_ex2): the trend is fitted without time point 2, to
 % check whether the remaining time points (in particular time point 1) are
 % consistent with the cooling trend once the outlier no longer contaminates it.
@@ -16,7 +17,7 @@ outdir = getenv('VSMSI_REV_DIR'); if isempty(outdir), outdir = project.supportin
 if ~isfolder(outdir), mkdir(outdir); end
 
 G = load(fullfile(project.data,'phaseMAPr_and_magmap.mat'),'phaseMAPr','magmap');
-R = load(fullfile(project.data,'ROI_and_tempr_resolved.mat'),'oil1','oil2','oil3','oil4');
+R = load(fullfile(project.data,'ROI_and_tempr_resolved.mat'),'oil1','oil2','oil3','oil4','scan_start_s');
 X = load(fullfile(project.data,'YX.mat'),'yangaib');
 S = load(fullfile(project.results,'statistics_results_final.mat'),'ALPHA_PAPER');
 
@@ -30,7 +31,8 @@ mask = mag >= 3*max(edge) & ~logical(X.yangaib);
 
 lam   = gre_params().lam;                  % B0*gamma*dTE (dTE = 2.46 ms), as in prf_maps
 alpha = mean(S.ALPHA_PAPER([1 4]));          % remote-ROI coefficient
-t = (1:num)';
+% actual GRE acquisition times (minutes after the first GRE scan); the nine scans are unevenly spaced (6.2-10.6 min)
+t = (R.scan_start_s(:,1) - R.scan_start_s(1,1))/60;
 resid_sd = zeros(1,num);  resid_sd_ex2 = nan(1,num);
 for v = 1:2
     for k = 1:num
@@ -38,7 +40,7 @@ for v = 1:2
         A = [ones(numel(o),1) t(o)];
         Y = reshape(ph(:,:,o),[],numel(o))';
         c = A \ Y;
-        r = ph(:,:,k) - reshape(c(1,:) + c(2,:)*k, size(mask));
+        r = ph(:,:,k) - reshape(c(1,:) + c(2,:)*t(k), size(mask));
         r = r - mean(r(oil));                    % same oil drift reference as the analysis
         dT = -r/lam/alpha;
         if v == 1, resid_sd(k) = std(dT(mask)); else, resid_sd_ex2(k) = std(dT(mask)); end

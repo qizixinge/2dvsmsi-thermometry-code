@@ -1,9 +1,9 @@
 % Collect the pseudo-replica SNR that statistics_analysis_final.m needs into one
 % derived file in data/: noise_dependence_summary.mat.
 % Run after rev_pseudoreplica_analysis.m.
-% The committed noise_dependence_summary.mat was written by an earlier version of
-% this script and holds additional fields; the TBME pipeline reads only
-% snr_replica and n_replicas.
+% WARNING: this script OVERWRITES data/noise_dependence_summary.mat (and results/numbers_snr.tex).
+% It writes snr_replica, n_replicas, source and tp; statistics_analysis_final.m reads
+% snr_replica and tp.  Run it only after rerunning the pseudo-replica analysis.
 here = fileparts(mfilename('fullpath')); root = fileparts(here);
 addpath(root); project = project_paths();
 outdir = getenv('VSMSI_REV_DIR'); if isempty(outdir), outdir = project.supporting; end

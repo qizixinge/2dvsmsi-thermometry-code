@@ -30,6 +30,8 @@ addpath(project.mapvbvd);
 
 RUN_A = true;    % 2DVSMSI reconstruction + T2 fitting
 RUN_B = true;    % PRF phase DICOM loading
+% Part B needs no raw .dat files: set the environment variable VSMSI_PART_B_ONLY=1 to skip Part A.
+if strcmp(getenv('VSMSI_PART_B_ONLY'),'1'), RUN_A = false; end
 
 num = 9;                         % time points, cooling order = acquisitions 1-9
 N   = 100;                       % native acquisition matrix
@@ -78,7 +80,10 @@ end
 %% ========================================================================
 if RUN_B
     % Phase DICOMs in cooling order (series 0015, 0017, 0019, ..., 0031; acquisitions 1-9).
-    % Siemens stores phase as an unsigned integer; rescale to [-pi, pi).
+    % The scanner stores phase as a 12-bit unsigned integer; the DICOM header gives the fixed rescale
+    %   value = RescaleSlope*stored + RescaleIntercept  (observed: slope 2, intercept -4096, so value in [-4096, 4094])
+    % and phase = value/4096*pi, in [-pi, pi).  Slope and intercept are read from every file and asserted (2, -4096);
+    % each frame uses the same fixed mapping (before 2026-11-10 each frame was scaled by its own maximum).
     dicom_phase = { ...
       'GRE_series0015_phase.IMA', ...
       'GRE_series0017_phase.IMA', ...
@@ -99,8 +104,14 @@ if RUN_B
     assert(numel(dicom_phase)==num,'reconstruct_all:Count','Expected %d phase DICOMs.',num);
     phaseMAPr = zeros(128,128,num);
     for t = 1:num
-        ph = double(dicomread(fullfile(project.data,dicom_phase{t})));
-        phaseMAPr(:,:,t) = ph/max(ph,[],'all')*2*pi - pi;
+        fn = fullfile(project.data,dicom_phase{t});
+        hd = dicominfo(fn);
+        assert(hd.RescaleSlope == 2 && hd.RescaleIntercept == -4096, 'reconstruct_all:Rescale', ...
+            'Unexpected DICOM rescale (slope %g, intercept %g) in %s. Fix: check the phase scaling before reusing the code.', ...
+            hd.RescaleSlope, hd.RescaleIntercept, dicom_phase{t});
+        stored = double(dicomread(fn));
+        value  = hd.RescaleSlope*stored + hd.RescaleIntercept;      % [-4096, 4094]
+        phaseMAPr(:,:,t) = value/4096*pi;                           % radians, [-pi, pi)
     end
     magmap = dicomread(fullfile(project.data,dicom_mag));
     save(fullfile(project.data,'phaseMAPr_and_magmap.mat'),'phaseMAPr','magmap');
