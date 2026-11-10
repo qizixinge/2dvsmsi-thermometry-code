@@ -1,0 +1,13 @@
+# regenerated outputs (reference outputs are in results/)
+output/
+# Pulseq scanner files written by sequence/*.m
+*.seq
+# MATLAB autosave / crash dumps
+*.asv
+matlab_crash_dump.*
+# Python
+__pycache__/
+*.pyc
+# OS noise
+Thumbs.db
+Desktop.ini

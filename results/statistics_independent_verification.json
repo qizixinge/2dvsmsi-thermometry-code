@@ -1,0 +1,370 @@
+{
+  "passed": 91,
+  "checks": [
+    {
+      "check": "nine time points in probe temperatures and ROI series (ROI coordinates constant)",
+      "passed": true
+    },
+    {
+      "check": "Acquisition-1 probe temperature from log: temprp1",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Acquisition-1 probe temperature from log: temp1",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Acquisition-1 probe temperature from log: temp3",
+      "max_absolute_difference": 4.973799150320701e-14
+    },
+    {
+      "check": "Acquisition-1 log means (GRE) at 0.01 degC",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Acquisition-1 log means (PFA) at 0.01 degC",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Acquisition-1 log means (Full) at 0.01 degC",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Fixed PFA coordinate transform",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Full ROI coordinates unchanged",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Input ROI extraction PFA-SOS",
+      "max_absolute_difference": 1.9761969838327786e-14
+    },
+    {
+      "check": "Probe-temperature arrays (acquisition-window log means) PFA-SOS",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Input ROI extraction Full-SOS",
+      "max_absolute_difference": 2.2898349882893854e-14
+    },
+    {
+      "check": "Probe-temperature arrays (acquisition-window log means) Full-SOS",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Input ROI extraction PFA-MIP",
+      "max_absolute_difference": 1.8957058145474548e-14
+    },
+    {
+      "check": "Probe-temperature arrays (acquisition-window log means) PFA-MIP",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Input ROI extraction Full-MIP",
+      "max_absolute_difference": 1.6542323066914832e-14
+    },
+    {
+      "check": "Probe-temperature arrays (acquisition-window log means) Full-MIP",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "B0 = 2.8947 T from DICOM ImagingFrequency 123.251054 MHz / 42.577478 MHz/T (nominal 3 T not used)",
+      "passed": true
+    },
+    {
+      "check": "PRF phase unwrap/oil drift/ROI extraction",
+      "max_absolute_difference": 1.3896634290890865e-22
+    },
+    {
+      "check": "GRE: all held-out errors",
+      "max_absolute_difference": 5.684341886080802e-14
+    },
+    {
+      "check": "GRE: rmse",
+      "max_absolute_difference": 1.865174681370263e-14
+    },
+    {
+      "check": "GRE: mae",
+      "max_absolute_difference": 7.896461262646426e-15
+    },
+    {
+      "check": "GRE: bias",
+      "max_absolute_difference": 1.5789453078340898e-14
+    },
+    {
+      "check": "GRE: max",
+      "max_absolute_difference": 5.684341886080802e-14
+    },
+    {
+      "check": "GRE: aggregation identity",
+      "max_absolute_difference": 1.0658141036401503e-14
+    },
+    {
+      "check": "PFA-SOS: all held-out errors",
+      "max_absolute_difference": 4.263256414560601e-14
+    },
+    {
+      "check": "PFA-SOS: rmse",
+      "max_absolute_difference": 1.099120794378905e-14
+    },
+    {
+      "check": "PFA-SOS: mae",
+      "max_absolute_difference": 6.328271240363392e-15
+    },
+    {
+      "check": "PFA-SOS: bias",
+      "max_absolute_difference": 1.1841222447017685e-14
+    },
+    {
+      "check": "PFA-SOS: max",
+      "max_absolute_difference": 4.263256414560601e-14
+    },
+    {
+      "check": "PFA-SOS: aggregation identity",
+      "max_absolute_difference": 5.662137425588298e-15
+    },
+    {
+      "check": "Full-SOS: all held-out errors",
+      "max_absolute_difference": 2.842170943040401e-14
+    },
+    {
+      "check": "Full-SOS: rmse",
+      "max_absolute_difference": 4.3298697960381105e-15
+    },
+    {
+      "check": "Full-SOS: mae",
+      "max_absolute_difference": 4.773959005888173e-15
+    },
+    {
+      "check": "Full-SOS: bias",
+      "max_absolute_difference": 9.47505962578532e-15
+    },
+    {
+      "check": "Full-SOS: max",
+      "max_absolute_difference": 1.4210854715202004e-14
+    },
+    {
+      "check": "Full-SOS: aggregation identity",
+      "max_absolute_difference": 9.992007221626409e-16
+    },
+    {
+      "check": "PFA-MIP: all held-out errors",
+      "max_absolute_difference": 2.842170943040401e-14
+    },
+    {
+      "check": "PFA-MIP: rmse",
+      "max_absolute_difference": 5.88418203051333e-15
+    },
+    {
+      "check": "PFA-MIP: mae",
+      "max_absolute_difference": 2.4424906541753444e-15
+    },
+    {
+      "check": "PFA-MIP: bias",
+      "max_absolute_difference": 1.341982081015658e-14
+    },
+    {
+      "check": "PFA-MIP: max",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "PFA-MIP: aggregation identity",
+      "max_absolute_difference": 1.887379141862766e-15
+    },
+    {
+      "check": "Full-MIP: all held-out errors",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "Full-MIP: rmse",
+      "max_absolute_difference": 5.329070518200751e-15
+    },
+    {
+      "check": "Full-MIP: mae",
+      "max_absolute_difference": 3.1086244689504383e-15
+    },
+    {
+      "check": "Full-MIP: bias",
+      "max_absolute_difference": 1.1050188541972261e-14
+    },
+    {
+      "check": "Full-MIP: max",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "Full-MIP: aggregation identity",
+      "max_absolute_difference": 2.55351295663786e-15
+    },
+    {
+      "check": "PFA-SOS: common slope",
+      "max_absolute_difference": 2.7200464103316335e-15
+    },
+    {
+      "check": "PFA-SOS: separate slopes",
+      "max_absolute_difference": 3.1585845050585704e-14
+    },
+    {
+      "check": "PFA-SOS: 20000 cluster-bootstrap percentile CI",
+      "max_absolute_difference": 2.220446049250313e-16
+    },
+    {
+      "check": "Full-SOS: common slope",
+      "max_absolute_difference": 3.3306690738754696e-16
+    },
+    {
+      "check": "Full-SOS: separate slopes",
+      "max_absolute_difference": 1.965094753586527e-14
+    },
+    {
+      "check": "Full-SOS: 20000 cluster-bootstrap percentile CI",
+      "max_absolute_difference": 5.551115123125783e-17
+    },
+    {
+      "check": "PFA-MIP: common slope",
+      "max_absolute_difference": 6.661338147750939e-16
+    },
+    {
+      "check": "PFA-MIP: separate slopes",
+      "max_absolute_difference": 3.4638958368304884e-14
+    },
+    {
+      "check": "Full-MIP: common slope",
+      "max_absolute_difference": 1.7763568394002505e-15
+    },
+    {
+      "check": "Full-MIP: separate slopes",
+      "max_absolute_difference": 1.8540724511240114e-14
+    },
+    {
+      "check": "PFA-SOS minus Full-SOS common slope",
+      "max_absolute_difference": 3.0531133177191805e-15
+    },
+    {
+      "check": "paired cluster-bootstrap CI of the PFA-Full difference",
+      "max_absolute_difference": 1.3877787807814457e-16
+    },
+    {
+      "check": "paired bootstrap uses the same stored time-point resamples for PFA and Full",
+      "passed": true
+    },
+    {
+      "check": "PFA: LOA midpoint",
+      "max_absolute_difference": 5.841887820051447e-17
+    },
+    {
+      "check": "PFA: BA RMSE identity",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Full: LOA midpoint",
+      "max_absolute_difference": 2.484784864637256e-17
+    },
+    {
+      "check": "Full: BA RMSE identity",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "seed, replicate count, pair count and noise-only removal",
+      "passed": true
+    },
+    {
+      "check": "GRE: separate slopes unchanged by the 3-9 reference",
+      "max_absolute_difference": 1.7867101231145398e-22
+    },
+    {
+      "check": "GRE: LOOCV predictions unchanged by the 3-9 reference",
+      "max_absolute_difference": 1.4210854715202004e-14
+    },
+    {
+      "check": "PFA-SOS: separate slopes unchanged by the 3-9 reference",
+      "max_absolute_difference": 6.050715484207103e-15
+    },
+    {
+      "check": "PFA-SOS: common slope unchanged by the 3-9 reference",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "PFA-SOS: LOOCV predictions unchanged by the 3-9 reference",
+      "max_absolute_difference": 1.4210854715202004e-14
+    },
+    {
+      "check": "Full-SOS: separate slopes unchanged by the 3-9 reference",
+      "max_absolute_difference": 2.6645352591003757e-15
+    },
+    {
+      "check": "Full-SOS: common slope unchanged by the 3-9 reference",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Full-SOS: LOOCV predictions unchanged by the 3-9 reference",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "PFA-MIP: separate slopes unchanged by the 3-9 reference",
+      "max_absolute_difference": 1.7763568394002505e-15
+    },
+    {
+      "check": "PFA-MIP: common slope unchanged by the 3-9 reference",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "PFA-MIP: LOOCV predictions unchanged by the 3-9 reference",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "Full-MIP: separate slopes unchanged by the 3-9 reference",
+      "max_absolute_difference": 3.552713678800501e-15
+    },
+    {
+      "check": "Full-MIP: common slope unchanged by the 3-9 reference",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Full-MIP: LOOCV predictions unchanged by the 3-9 reference",
+      "max_absolute_difference": 2.1316282072803006e-14
+    },
+    {
+      "check": "MATLAB reference-invariance diagnostics (slopes/F/LOOCV, all-nine vs 3-9 reference) below tolerance",
+      "passed": true
+    },
+    {
+      "check": "GRE->PFA gap from scan times",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Deming slope with time point 2 included, Pfa",
+      "max_absolute_difference": 3.3306690738754696e-16
+    },
+    {
+      "check": "Deming slope with time point 2 included, Full",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Tref Gre = mean over time points 3-9 of all ROIs",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "Tref Pfa = mean over time points 3-9 of all ROIs",
+      "max_absolute_difference": 7.105427357601002e-15
+    },
+    {
+      "check": "Tref Full = mean over time points 3-9 of all ROIs",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "GRE sensitivity primary set equals the main analysis (all nine time points)",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "GRE sensitivity primary LOOCV RMSE equals the main analysis",
+      "max_absolute_difference": 0.0
+    },
+    {
+      "check": "318 LaTeX macros equal independently recomputed / stored values",
+      "passed": true
+    }
+  ],
+  "scope": "Independent least-squares LOOCV, per-ROI slopes and R2, stored cluster resamples (common-slope CI and paired PFA-Full difference), B0 from the DICOM header and BA identities."
+}

@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the accompanying paper."
+title: "Code and derived data for: Sub-minute T2-sensitive multispectral MR thermometry near a metallic implant using view sharing: A phantom feasibility study"
+type: software
+authors:
+  - family-names: Li
+    given-names: Shiao
+  - family-names: Wang
+    given-names: Fei
+  - family-names: Gao
+    given-names: Song
+    email: gaoss@pku.edu.cn
+license: MIT
+repository-code: "https://github.com/qizixinge/2dvsmsi-thermometry-code"
+preferred-citation:
+  type: article
+  title: "Sub-minute T2-sensitive multispectral MR thermometry near a metallic implant using view sharing: A phantom feasibility study"
+  authors:
+    - family-names: Li
+      given-names: Shiao
+    - family-names: Wang
+      given-names: Fei
+    - family-names: Gao
+      given-names: Song
+  journal: "IEEE Transactions on Biomedical Engineering"
+  notes: "Citation placeholder: update volume, pages, year and DOI after publication."
