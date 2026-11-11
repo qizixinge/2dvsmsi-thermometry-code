@@ -99,11 +99,14 @@ Analysis conventions in brief: nine time points; calibration and LOOCV use all n
 | `YX.mat` | rod geometry and oil-region display mask |
 | `noise_dependence_summary.mat` | pseudo-replica SNR (`snr_replica`, `n_replicas`) |
 | `probe_log_20250425.csv` | 1 Hz fluoroptic log (four channels) of the session |
-| `GRE_series00NN_phase.IMA`, `GRE_series0016_magnitude.IMA` | GRE DICOM files (series 0015, 0017, ..., 0031 = acquisitions 1-9, phase-difference images; series 0016 = magnitude, echo 1). De-identified: patient, institution and device fields were blanked or replaced, the Siemens private CSA headers removed and UIDs regenerated. Pixel data, echo times, imaging frequency and acquisition times are unchanged. |
+| `GRE_series00NN_phase.IMA`, `GRE_series0016_magnitude.IMA` | GRE DICOM files (series 0015, 0017, ..., 0031 = acquisitions 1-9, phase-difference images; series 0016 = magnitude, echo 1). De-identified (details below the table). Pixel data, echo times, imaging frequency and acquisition times are unchanged. |
+
+
+De-identification of the GRE DICOM files: Patient's Name and ID were replaced by PHANTOM and PHANTOM01; birth date, sex, age, size, weight, institution name and address, department, station name, referring and performing physician, accession number and device serial number were emptied; study, procedure-step and series/protocol descriptions were replaced by neutral text (PHANTOM_PULSEQ, gre_field_mapping); the two Siemens CSA header blobs (0029,1010) and (0029,1020) were removed. Other Siemens private elements (acquisition parameters, matrix/FoV/coil text and two private copies of the study date) were kept, and so were all acquisition dates and times, because the code and the paper use them to synchronise the GRE scans with the probe log; this is a phantom scan, but the files are not claimed to meet a formal anonymisation profile. Class-type UIDs (SOP Class, Referenced SOP Class, Media Storage SOP Class, Transfer Syntax, Implementation Class) are unchanged; instance and identity UIDs (study, series, SOP instance, frame of reference, referenced SOP instances) were regenerated with one fixed mapping, so references inside and between files stay consistent. Pixel data, echo times, imaging frequency, pixel bandwidth and rescale values are identical to the originals.
 
 ## Third-party code
 
-`third_party/mapVBVD/` (Philipp Ehses and contributors, MIT licence, https://github.com/pehses/mapVBVD) reads Siemens twix files. `code/pocsnew.m` derives from Michael Völker's POCS implementation (BSD 2-clause); see `third_party/pocs/`. The MIT licence of this repository covers the authors' own code only.
+`third_party/mapVBVD/` (Philipp Ehses and contributors, MIT licence, https://github.com/pehses/mapVBVD) reads Siemens twix files. `code/pocsnew.m` derives from Michael Völker's POCS implementation (BSD 2-clause); see `third_party/pocs/`. The MIT licence in `LICENSE` covers the authors' own code and the released derived data (the `.mat` files, `results/` and the de-identified GRE DICOM files); third-party code keeps its own licences.
 
 ## Use of generative AI
 

@@ -31,7 +31,7 @@ Local absolute paths belong in environment variables, not in `.m` files.
 
 ### Raw reconstruction inputs (not distributed)
 
-`code/reconstruct_all.m` lists the expected file names and the cooling order: PFA 2DVSMSI raw `.dat` files (MID00570, 00576, ..., 00618), fully sampled files (MID00572, 00578, ..., 00620), the GRE phase DICOM files (series 0015, 0017, ..., 0031) and the GRE magnitude DICOM file (series 0016). The raw `.dat` files (about 1.5 GB) are available from the corresponding author on reasonable request. The GRE DICOM files are in `data/` in de-identified form (patient, institution and device fields blanked or replaced, Siemens private CSA headers removed, UIDs regenerated; pixel data and the tags used by the code unchanged).
+`code/reconstruct_all.m` lists the expected file names and the cooling order: PFA 2DVSMSI raw `.dat` files (MID00570, 00576, ..., 00618), fully sampled files (MID00572, 00578, ..., 00620), the GRE phase DICOM files (series 0015, 0017, ..., 0031) and the GRE magnitude DICOM file (series 0016). The raw `.dat` files (about 1.5 GB) are available from the corresponding author on reasonable request. The GRE DICOM files are in `data/` in de-identified form (patient, institution and device fields blanked or replaced; the Siemens CSA header blobs removed; class-type UIDs kept, instance and identity UIDs regenerated with a fixed mapping; acquisition dates and times and other private acquisition elements kept for probe synchronisation, so this is not a formal anonymisation profile; pixel data and the tags used by the code unchanged. Full field list: README, section on the GRE DICOM files).
 
 ### Derived analysis inputs (in `data/`)
 
@@ -125,7 +125,7 @@ After any reconstruction, ROI, temperature-array or statistics change:
 
 ## Access and licensing boundaries
 
-Raw scanner data are restricted and available from the corresponding author on reasonable request. The MIT licence in `LICENSE` covers the authors' own code and the derived files. Third-party components keep their own terms:
+Raw scanner data are restricted and available from the corresponding author on reasonable request. The MIT licence in `LICENSE` covers the authors' own code and the released derived data (the `.mat` files, `results/` and the de-identified GRE DICOM files); third-party code keeps its own licences:
 
 - `code/pocsnew.m` derives from Michael Völker's POCS implementation (BSD 2-clause), see `third_party/pocs/LICENSE.txt` and `NOTICE.md`;
 - `third_party/mapVBVD/` is the Siemens reader of Philipp Ehses and contributors (MIT), see `third_party/mapVBVD/LICENSE`.

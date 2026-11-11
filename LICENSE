@@ -20,7 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This licence covers the authors' own code and the derived data files in this
-repository only. Third-party code keeps its own licence: see
+This licence covers the authors' own code and the released derived data in this
+repository (the .mat files, results/ and the de-identified GRE DICOM files).
+Third-party code keeps its own licences: see
 third_party/mapVBVD/LICENSE (MIT, Philipp Ehses) and third_party/pocs/LICENSE.txt
 (BSD 2-clause, Michael Völker; applies also to the derivative code/pocsnew.m).

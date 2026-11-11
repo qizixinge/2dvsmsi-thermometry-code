@@ -829,10 +829,12 @@ M = addm(M,'GapOneSec','%.0f',gap_s(1));  M = addm(M,'GapOneMin','%.1f',gap_s(1)
 M = addm(M,'GapOtherMinSec','%.0f',min(gap_s(2:end))); M = addm(M,'GapOtherMaxSec','%.0f',max(gap_s(2:end)));
 M = addm(M,'WinRangeMax','%.2f',R.win_range_max);      M = addm(M,'WinDevMax','%.2f',R.win_dev_max);
 for k = 1:4, M = addm(M,['Dist' roiN{k}],'%.0f',dist_mm(k)); end
-if isfield(S1f,'fit_seconds')
-    fs_ = sum(S1f.fit_seconds,3);      % per acquisition file: MIP + SOS fitting seconds
-    M = addm(M,'FitMedian','%.1f',median(fs_(:))); M = addm(M,'FitMin','%.1f',min(fs_(:))); M = addm(M,'FitMax','%.1f',max(fs_(:)));
+if ~isfield(S1f,'fit_seconds')
+    error('vsmsi:MissingFitSeconds', ['T2MAP_and_img4i_native100.mat has no fit_seconds, so the FitMedian/FitMin/FitMax ' ...
+        'macros cannot be written. Regenerate the file with reconstruct_all.m (Part A).']);
 end
+fs_ = sum(S1f.fit_seconds,3);      % per acquisition file: MIP + SOS fitting seconds
+M = addm(M,'FitMedian','%.1f',median(fs_(:))); M = addm(M,'FitMin','%.1f',min(fs_(:))); M = addm(M,'FitMax','%.1f',max(fs_(:)));
 % Table I / S1 / S2: coefficients and per-ROI LOOCV metrics
 slopes_ = {m2_p_sos, m2_f_sos, m2_p_mip, m2_f_mip};
 for k = 1:4
