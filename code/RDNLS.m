@@ -1,5 +1,7 @@
 function [T2map] = RDNLS(roimg4i,ctrech,tesp,T2approx)
-% Purpose: voxelwise mono-exponential fitting of multi-echo magnitudes using a 0-400 ms grid with 0.05 ms steps; zero voxels below three times background noise.
+% Purpose: voxelwise mono-exponential fitting of multi-echo magnitudes using a 0-400 ms grid with 0.05 ms steps.
+% No intensity threshold is applied here; display masks are applied in one place
+% (statistics_analysis_final.m, DISPLAY_FRAC), identically for 2DVSMSI and GRE.
 
 %img4i default n*n*4
 %T2approx need to be larger than T2real
@@ -31,20 +33,7 @@ J=J';
 optT2=t2srch(idT2);
 
 
-% Extract 10 rows near the top, bottom, left, and right edges
-top_rows = roimg4i(1:10, :,1);
-bottom_rows = roimg4i(A-9:A, :,1);
-left_rows = roimg4i(:, 1:10,1);
-right_rows = roimg4i(:, B-9:B,1);
-% Combine the extracted edge rows into a vector
-edge_rows = [top_rows(:); bottom_rows(:); left_rows(:); right_rows(:)];
-% Calculate the max
-max_intensity = max(edge_rows,[],'all');%median(edge_rows);
-% Calculate background noise intensity
-noise = max_intensity;
-
 T2map=reshape(optT2,A,B);
 
-T2map(roimg4i(:,:,1)<3*noise)=0;
 
 end

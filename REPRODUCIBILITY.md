@@ -85,7 +85,7 @@ py -3.12 -I tests/verify_statistics.py
 
 This checks the statistical calculations and figure generation; it does not test raw-data decoding or reconstruction. Run the MATLAB scripts sequentially. The regenerated `output/results/numbers*.tex` and `statistics_results_final.txt` are compared with `results/`. `numbers_snr.tex` is produced only from the raw-data pseudo-replica run (`rev_pseudoreplica.m`, `rev_pseudoreplica_analysis.m`, `rev_write_dependence_summary.m`); its reference copy is in `results/`.
 
-Pseudo-replica SNR configuration (verified 2026-11-10 by an independent full re-run from the raw k-space data, which reproduced all four SNR values exactly): time point 3 (PFA MID00582, Full MID00584); PFA 210 replicas in chunks of 100/100/10 with seeds 20261313/20261314/20261315, Full 200 replicas in chunks of 100/100 with seeds 20262313/20262314 (MATLAB twister); noise covariance from the three lowest-energy frequency bins [3 8 9] of the raw Full data. The full chain takes about one hour on a 6-core laptop.
+Pseudo-replica SNR configuration (verified 2026-11-10 by an independent full re-run from the raw k-space data, which reproduced all four SNR values exactly): time point 3 (PFA MID00582, Full MID00584); 200 replicas per variant, in chunks of 100/100 with seeds 20261313/20261314 (PFA) and 20262313/20262314 (Full) (MATLAB twister); `rev_pseudoreplica_analysis.m` uses the first `PR_NR_MAX` = 200 replicas of each variant (an extra 10-replica PFA chunk, seed 20261315, is ignored if present); noise covariance from the three lowest-energy frequency bins [3 8 9] of the raw Full data. The full chain takes about one hour on a 6-core laptop.
 
 ### C. Figure and table map
 
@@ -103,7 +103,7 @@ See the table in `README.md`. Every result number in the paper is a LaTeX macro 
 - The overall RMSE across the four ROI-specific LOOCV RMSE values is an aggregate. It is neither a maximum error nor the error of a predictor using a common slope (see the common-coefficient LOOCV for that).
 - Bootstrap resampling keeps the observations of a time point together across ROIs; it does not create independent phantom repetitions.
 - Display interpolation does not turn the native-grid measurements into an independent higher-resolution data set.
-- The fixed 10-pixel border used by RDNLS for thresholding is not translation-invariant; this does not affect any ROI.
+- Display mask: one rule for GRE, PFA and Full in `statistics_analysis_final.m` (`DISPLAY_FRAC`): magnitude below 20% of the image's own reference-rectangle mean is masked. `RDNLS.m` applies no intensity threshold (since 2026-11-13); the mask does not affect any ROI result.
 
 ## Scripts that overwrite derived files
 
@@ -118,7 +118,7 @@ Three scripts write into `data/` in place; keep a copy of `data/` before rerunni
 After any reconstruction, ROI, temperature-array or statistics change:
 
 - `output/results/statistics_results_final.txt/.mat` and `numbers*.tex` were regenerated;
-- `py -3.12 -I tests/verify_statistics.py` passes (125 independently recomputed + 12 consistency checks);
+- `py -3.12 -I tests/verify_statistics.py` passes (125 independently recomputed + 14 consistency checks);
 - figures were regenerated;
 - probe temperatures are the 1 Hz log means over each scan's acquisition window with the 51 s offset corrected;
 - no claim describes within-series LOOCV as independent validation.

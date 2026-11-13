@@ -4,10 +4,10 @@
 %   Method : Gre | PfaSos | FullSos | PfaMip | FullMip ; Seq (Bland-Altman, temperatures): Pfa | Full | Gre
 %   Roi    : I | II | III | IV ;  Tp<Word>: time point spelled out (TpThree)
 %   Quantity: AlphaGre (1e-8/degC), Slope (ms/degC), Rmse/Mae/Bias/Maxe (degC, Bias signed), RmsOverall,
-%     Cv (between-ROI slope CV), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,
+%     Cv (between-ROI slope CV), CvFit (CV expected from per-ROI slope SEs), TempSdRoiMin/Max (per-ROI SD of probe temperature), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,
 %     UncOne/UncEight (CI half-width scale at dT = 1 / 8 degC), BaLoa/BaBiasPool/BaLoPool/BaHiPool/BaRms (pooled),
 %     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi, Tcmp<Seq><Roi> (probe temperature at the
-%     comparison time point), TcmpMin/Max<Seq>, Tref, ThrPct<Seq>, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.
+%     comparison time point), TcmpMin/Max<Seq>, Tref, DisplayFracPct, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.
 %   Signs: Bias*/Ba*Lo/Ba*Hi/BaBiasMin/Max carry an explicit sign as plain ASCII text; wrap in $...$ for a minus sign.
 %   Use \nName{} (not \nName followed by a letter) in running text.
 % SNR, GRE residual SDs and GRE sensitivity are written by the supporting scripts (numbers_*.tex) and included at the end.
@@ -43,9 +43,9 @@
 \newcommand{\nDistII}{11}
 \newcommand{\nDistIII}{9}
 \newcommand{\nDistIV}{23}
-\newcommand{\nFitMedian}{7.9}
-\newcommand{\nFitMin}{6.8}
-\newcommand{\nFitMax}{14.1}
+\newcommand{\nFitMedian}{8.1}
+\newcommand{\nFitMin}{6.5}
+\newcommand{\nFitMax}{10.3}
 \newcommand{\nAlphaGreI}{0.926}
 \newcommand{\nSlopePfaSosI}{0.415}
 \newcommand{\nSlopeFullSosI}{0.346}
@@ -213,6 +213,8 @@
 \newcommand{\nSdFitGreRemoteMax}{0.11}
 \newcommand{\nCoolRate}{0.12}
 \newcommand{\nCoolFiveMin}{0.6}
+\newcommand{\nTempSdRoiMin}{1.7}
+\newcommand{\nTempSdRoiMax}{2.2}
 \newcommand{\nRmseMinSos}{0.37}
 \newcommand{\nRmseMaxSos}{0.99}
 \newcommand{\nRmseMinMip}{0.43}
@@ -222,9 +224,13 @@
 \newcommand{\nRmseGreNearMin}{2.33}
 \newcommand{\nRmseGreNearMax}{6.55}
 \newcommand{\nCvPfaSos}{8.7}
+\newcommand{\nCvFitPfaSos}{8.9}
 \newcommand{\nCvFullSos}{9.0}
+\newcommand{\nCvFitFullSos}{9.4}
 \newcommand{\nCvPfaMip}{34.8}
+\newcommand{\nCvFitPfaMip}{10.3}
 \newcommand{\nCvFullMip}{23.4}
+\newcommand{\nCvFitFullMip}{8.8}
 \newcommand{\nRsqGreI}{0.997}
 \newcommand{\nRsqGreII}{0.391}
 \newcommand{\nRsqGreIII}{0.685}
@@ -354,9 +360,7 @@
 \newcommand{\nTcmpMinFull}{41.4}
 \newcommand{\nTcmpMaxFull}{42.5}
 \newcommand{\nTrefFull}{39.6}
-\newcommand{\nThrPctPfa}{25}
-\newcommand{\nThrPctFull}{20}
-\newcommand{\nThrPctGre}{30}
+\newcommand{\nDisplayFracPct}{20}
 \InputIfFileExists{results/numbers_snr.tex}{}{}
 \InputIfFileExists{results/numbers_gre_residual.tex}{}{}
 \InputIfFileExists{results/numbers_gre_sensitivity.tex}{}{}

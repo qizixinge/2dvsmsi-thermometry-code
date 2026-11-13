@@ -37,11 +37,10 @@
 %   * Figures are written to output/figures (project.figures) under the names
 %     used by tbme_main.tex and tbme_supplementary.tex; the text and .mat
 %     results go to output/results (project.results).
-%   * Display masks: PFA and Full each take the threshold from their own
-%     first-time-point 16 ms SOS magnitude (3 x the maximum of the 10-pixel
-%     edge band); GRE uses its own magnitude. Previously the PFA value was
-%     applied to both 2DVSMSI variants. The masks affect display and the
-%     Bland-Altman voxel selection only.%
+%   * Display masks (revised 2026-11-13): one rule for PFA, Full and GRE, magnitude
+%     below 20% of the image's own reference-rectangle mean (16 ms SOS at TP_CMP;
+%     GRE magnitude of acquisition 2).  RDNLS.m no longer zeroes voxels itself.
+%     The masks affect display and the Bland-Altman voxel selection only.%
 % REVISION 2026-11-10 (second audit round)
 %   * S2b: secondary common-coefficient LOOCV (the model used for the maps), 95% cluster-bootstrap intervals
 %     of the overall LOOCV RMSE, in-sample SD of (fit-derived - probe temperature) per ROI (Weber et al. 2017
@@ -106,8 +105,7 @@ FIG_DIR = project.figures;   % \graphicspath of the TBME manuscript
 
 NB          = 20000;         % bootstrap replicates
 SEED        = 20260830;      % bootstrap seed (fixed)
-EDGE_W      = 10;            % border width for background-noise estimation
-NOISE_FACTOR= 3;             % signal below 3x background is masked
+DISPLAY_FRAC= 0.20;          % display mask: magnitude below 20% of the image's own reference-rectangle mean is masked
 TP_CMP      = 3;             % time point of the dT maps (Fig. 5, S2, S4), display thresholds and SNR
 BA_TPS      = 3:9;           % time points pooled in the Bland-Altman comparison (Fig. S3) and
                              % averaged as the dT reference of the maps and the Bland-Altman.
@@ -289,6 +287,15 @@ for c = 1:numel(cal)
     rf = roifit(cal(c).Y, cal(c).T);
     POOL(c).name = cal(c).name;
     POOL(c).slopes = sl;   POOL(c).cv = 100*std(sl)/mean(sl);
+    % CV expected from the per-ROI fitting uncertainty alone: root-mean-square of the
+    % per-ROI OLS slope standard errors divided by the mean slope (descriptive).
+    se_ = zeros(1,numel(sl));
+    for k = 1:numel(sl)
+        x_ = cal(c).T(:,k)-mean(cal(c).T(:,k));  y_ = cal(c).Y(:,k)-mean(cal(c).Y(:,k));
+        r_ = y_ - (sum(x_.*y_)/sum(x_.^2))*x_;
+        se_(k) = sqrt(sum(r_.^2)/(numel(y_)-2)/sum(x_.^2));
+    end
+    POOL(c).cv_fit = 100*sqrt(mean(se_.^2))/mean(sl);
     POOL(c).r2 = rf.r2;    POOL(c).pooled = mc;
     POOL(c).common_reported = any(strcmp(cal(c).name,{'PFA-SOS','Full-SOS'}));   % documented descriptive rule
     if POOL(c).common_reported
@@ -421,18 +428,18 @@ exportgraphics(figS1, fullfile(FIG_DIR,'FigS1_calibration_MIP.png'), 'Resolution
 %  S4  FIGURE 5  dT maps (NaN outside mask)  +  FIGURE S2 absolute T
 %% ========================================================================
 fprintf('\n---- S4  Figure 5 / S2 ------------------------------------------\n');
-% Display threshold = NOISE_FACTOR x the maximum of the EDGE_W-pixel edge band
-% of each method's own magnitude at time point TP_CMP (16 ms SOS for 2DVSMSI).
-% The GRE magnitude image is series 0016 (acquisition 2): the only GRE magnitude
-% that exists, used for the GRE threshold whatever TP_CMP is.
-noise_pfa  = edge_noise(img4isos(:,:,TP_CMP,1), EDGE_W);
-noise_full = edge_noise(img4isos(:,:,TP_CMP,3), EDGE_W);
-noise_gre  = edge_noise(magmap,            EDGE_W);
+% Display mask (one rule for all three images): magnitude below DISPLAY_FRAC x the
+% mean magnitude of the same image in the reference rectangle is masked.  2DVSMSI:
+% the 16 ms SOS image at time point TP_CMP; GRE: series 0016 (acquisition 2), the only
+% GRE magnitude that exists, used whatever TP_CMP is.  A noise-based rule was not used:
+% the 2DVSMSI images contain low-level phase-encoding ghost signal outside the phantom
+% that is real signal (it decays with echo time) and lies well above the noise floor.
 ref_sig = [mean(img4isos(snr_rows100,snr_cols100,TP_CMP,1),'all'), ...
     mean(img4isos(snr_rows100,snr_cols100,TP_CMP,3),'all'), gre_sig];
-thr_disp = NOISE_FACTOR*[noise_pfa noise_full noise_gre];
-fprintf('display threshold %dx edge max: PFA %.4g (%.1f%% of ref. rectangle) | Full %.4g (%.1f%%) | GRE %.4g (%.1f%%)\n', ...
-    NOISE_FACTOR, [thr_disp; 100*thr_disp./ref_sig]);
+noise_pfa = ref_sig(1);  noise_full = ref_sig(2);  noise_gre = ref_sig(3);   % reference levels passed to t2_maps / prf_maps
+NOISE_FACTOR = DISPLAY_FRAC;                                                 % mask = magnitude >= NOISE_FACTOR x reference level
+thr_disp = DISPLAY_FRAC*ref_sig;
+fprintf('display threshold %.0f%% of the reference-rectangle mean: PFA %.4g | Full %.4g | GRE %.4g\n', 100*DISPLAY_FRAC, thr_disp);
 
 Tref_pfa  = mean(temp1(BA_TPS,:),'all');  Tref_full = mean(temp3(BA_TPS,:),'all');  Tref_prf = mean(temprp1(BA_TPS,:),'all');
 m_pfa  = POOL(1).pooled;   m_full = POOL(2).pooled;     % pooled SOS slopes
@@ -519,13 +526,11 @@ exportgraphics(figS2, fullfile(FIG_DIR,'FigS2_absolute_T_maps.png'), 'Resolution
 %   * NATIVE grids, no display interpolation and no PE-line registration.
 %     Each panel shows the map exactly as reconstructed on its own grid.
 %   * Masked voxels are ASSIGNED the clim minimum (-3 ms / -3e-8) rather than
-%     NaN, reproducing the manuscript convention ("we assigned a dT2 value of
-%     -3 ms to voxels with signal intensities below three times the background
-%     noise").  No NaN survives into these images.
-%   * Masks are the ORIGINAL per-modality intensity thresholds returned by
-%     t2_maps / prf_maps (mk_pfa / mk_full / mk_prf): magnitude at or above
-%     3x the edge noise with the oil references removed, plus the T2 fit
-%     validity terms on the T2 branch.  One rule across all three panels.
+%     NaN, so they appear as uniform background.  No NaN survives into these images.
+%   * Masks are those returned by t2_maps / prf_maps (mk_pfa / mk_full / mk_prf):
+%     magnitude at or above DISPLAY_FRAC (20%) of the image's own reference-rectangle
+%     mean with the oil references removed, plus the T2 fit validity terms on the
+%     T2 branch.  One rule across all three panels.
 %% ========================================================================
 fprintf('\n---- S4b  Figure 4 B/C/D (snapshot maps) -----------------------\n');
 
@@ -791,8 +796,8 @@ fprintf(fid,'\nBLAND-ALTMAN SENSITIVITY with time point 2 included (BA_ALT = %d-
 fprintf(fid,'PFA-SOS  vs PRF  LOA [%+.2f %+.2f]  Deming %.3f [%.3f %.3f]\n', BAalt1.loa_lo, BAalt1.loa_hi, DEMalt_pfa, DEMalt_pfa_ci);
 fprintf(fid,'Full-SOS vs PRF  LOA [%+.2f %+.2f]  Deming %.3f [%.3f %.3f]\n', BAalt2.loa_lo, BAalt2.loa_hi, DEMalt_full, DEMalt_full_ci);
 fprintf(fid,'T_ref: PFA %.3f Full %.3f PRF %.3f degC\n', Tref_pfa, Tref_full, Tref_prf);
-fprintf(fid,'display threshold (%d x max of %d-pixel edge band, own magnitude at time point %d; GRE magnitude = series 0016, acquisition 2, the only GRE magnitude): PFA %.4g (%.1f%% of ref. rectangle) Full %.4g (%.1f%%) GRE %.4g (%.1f%%)\n', ...
-    NOISE_FACTOR, EDGE_W, TP_CMP, [thr_disp; 100*thr_disp./ref_sig]);
+fprintf(fid,'display threshold (%.0f%% of the reference-rectangle mean of the own magnitude at time point %d; GRE magnitude = series 0016, acquisition 2, the only GRE magnitude): PFA %.4g Full %.4g GRE %.4g\n', ...
+    100*DISPLAY_FRAC, TP_CMP, thr_disp);
 fprintf(fid,'valid voxels: PFA %d Full %d PRF %d\n', nnz(mk_pfa), nnz(mk_full), nnz(mk_prf));
 fprintf(fid,'\nREFERENCE INVARIANCE: dT2/ds referenced to all %d time points vs time points %d-%d (max abs differences)\n', n_tp, REF_ALT(1), REF_ALT(end));
 for m_ = 1:5
@@ -866,6 +871,8 @@ M = addm(M,'SdFitSosMin','%.2f',min([sd_fit_SOSPFA_ sd_fit_SOSFULL_]));  M = add
 M = addm(M,'SdFitGreRemoteMin','%.2f',min(sd_fit_roi(1,[1 4])));  M = addm(M,'SdFitGreRemoteMax','%.2f',max(sd_fit_roi(1,[1 4])));
 M = addm(M,'CoolRate','%.2f',(max(allT)-min(allT))/cool_min);              % degC per min, temperature span / cooling duration
 M = addm(M,'CoolFiveMin','%.1f',5*(max(allT)-min(allT))/cool_min);         % change during a 5 min T1 map
+sdT_ = [std(temp1,1,1) std(temp3,1,1)];                                       % per-ROI SD of probe temperature (2DVSMSI scans)
+M = addm(M,'TempSdRoiMin','%.1f',min(sdT_));  M = addm(M,'TempSdRoiMax','%.1f',max(sdT_));
 M = addm(M,'RmseMinSos','%.2f',min(loocv_rmse(2:3,:),[],'all'));  M = addm(M,'RmseMaxSos','%.2f',max(loocv_rmse(2:3,:),[],'all'));
 M = addm(M,'RmseMinMip','%.2f',min(loocv_rmse(4:5,:),[],'all'));  M = addm(M,'RmseMaxMip','%.2f',max(loocv_rmse(4:5,:),[],'all'));
 M = addm(M,'RmseGreRemoteMin','%.2f',min(loocv_rmse(1,[1 4])));   M = addm(M,'RmseGreRemoteMax','%.2f',max(loocv_rmse(1,[1 4])));
@@ -873,6 +880,7 @@ M = addm(M,'RmseGreNearMin','%.2f',min(loocv_rmse(1,[2 3])));     M = addm(M,'Rm
 % between-ROI slope CV, per-ROI R^2, common slopes (SOS), paired PFA-Full difference, interval scales
 for c = 1:4
     M = addm(M,['Cv' key4{c}],'%.1f',POOL(c).cv);
+    M = addm(M,['CvFit' key4{c}],'%.1f',POOL(c).cv_fit);
 end
 fits_ = {fit_prf, fit_pfa, fit_full, fit_pmip, fit_fmip};
 for m = 1:5
@@ -921,7 +929,7 @@ for s_ = 1:3
     M = addm(M,['Tref' seqs{s_}],'%.1f',Tref_(s_));
 end
 thr_pct = 100*thr_disp./ref_sig;                 % [PFA Full GRE]
-M = addm(M,'ThrPctPfa','%.0f',thr_pct(1));  M = addm(M,'ThrPctFull','%.0f',thr_pct(2));  M = addm(M,'ThrPctGre','%.0f',thr_pct(3));
+M = addm(M,'DisplayFracPct','%.0f',100*DISPLAY_FRAC);   % one display threshold for all three images
 write_numbers(fullfile(OUT_DIR,'numbers.tex'), M);
 fprintf('wrote numbers.tex (%d macros)\n', numel(M));
 
@@ -971,10 +979,10 @@ fprintf(fid,'%% Naming: \\n<Quantity><Method><Roi|Tp...>, letters only.\n');
 fprintf(fid,'%%   Method : Gre | PfaSos | FullSos | PfaMip | FullMip ; Seq (Bland-Altman, temperatures): Pfa | Full | Gre\n');
 fprintf(fid,'%%   Roi    : I | II | III | IV ;  Tp<Word>: time point spelled out (TpThree)\n');
 fprintf(fid,'%%   Quantity: AlphaGre (1e-8/degC), Slope (ms/degC), Rmse/Mae/Bias/Maxe (degC, Bias signed), RmsOverall,\n');
-fprintf(fid,'%%     Cv (between-ROI slope CV), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,\n');
+fprintf(fid,'%%     Cv (between-ROI slope CV), CvFit (CV expected from per-ROI slope SEs), TempSdRoiMin/Max (per-ROI SD of probe temperature), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,\n');
 fprintf(fid,'%%     UncOne/UncEight (CI half-width scale at dT = 1 / 8 degC), BaLoa/BaBiasPool/BaLoPool/BaHiPool/BaRms (pooled),\n');
 fprintf(fid,'%%     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi, Tcmp<Seq><Roi> (probe temperature at the\n');
-fprintf(fid,'%%     comparison time point), TcmpMin/Max<Seq>, Tref, ThrPct<Seq>, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.\n');
+fprintf(fid,'%%     comparison time point), TcmpMin/Max<Seq>, Tref, DisplayFracPct, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.\n');
 fprintf(fid,'%%   Signs: Bias*/Ba*Lo/Ba*Hi/BaBiasMin/Max carry an explicit sign as plain ASCII text; wrap in $...$ for a minus sign.\n');
 fprintf(fid,'%%   Use \\nName{} (not \\nName followed by a letter) in running text.\n');
 fprintf(fid,'%% SNR, GRE residual SDs and GRE sensitivity are written by the supporting scripts (numbers_*.tex) and included at the end.\n');
@@ -1154,13 +1162,6 @@ end
 
 function s = roman(k), r = {'I','II','III','IV'}; s = r{k}; end
 
-function n = edge_noise(img, w)
-img = double(img);
-e = [reshape(img(1:w,:),[],1); reshape(img(end-w+1:end,:),[],1); ...
-     reshape(img(:,1:w),[],1); reshape(img(:,end-w+1:end),[],1)];
-n = max(e,[],'all');
-end
-
 function [T, mask, D] = t2_maps(T2vol, magvol, m2, Tref, oilmask, noise, nf, tp, reft)
 % Absolute temperature (Eq.6) and dT maps; invalid voxels -> NaN.
 % dT at time point tp is referenced to the mean over time points reft.
@@ -1183,8 +1184,8 @@ for k = 1:size(dph,3)
     t = dph(:,:,k);  dph(:,:,k) = t - mean(t(id),'all');
 end
 ds   = -dph(:,:,tp)/lamda;
-% Mask = the manuscript's own criterion: magnitude at or above nf x the
-% background noise, oil bottles excluded.  oil_display (yangaib from YX.mat)
+% Mask = the manuscript's criterion: magnitude at or above nf x the reference
+% level (DISPLAY_FRAC x reference-rectangle mean), oil bottles excluded.  oil_display (yangaib from YX.mat)
 % covers the full bottle outline (5291 voxels on the 128 grid); o1..o4 from
 % ROI_and_tempr_resolved.mat only mark the bright cores (224 voxels) and are
 % used solely for drift correction above.  Using oil_display here removes

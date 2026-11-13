@@ -5,6 +5,7 @@
 here = fileparts(mfilename('fullpath')); root = fileparts(here);
 addpath(root); addpath(here);
 if ~exist('PR_TP','var'), PR_TP = 3; end     % time point of the replicas (rev_pseudoreplica.m)
+if ~exist('PR_NR_MAX','var'), PR_NR_MAX = 200; end   % replicas used per variant (chunk order, first PR_NR_MAX)
 project = project_paths();
 outdir = getenv('VSMSI_REV_DIR'); if isempty(outdir), outdir = project.supporting; end
 prdir = fullfile(outdir,'pseudoreplica');
@@ -37,6 +38,12 @@ for v = 1:2
         sos3 = cat(4,sos3,double(X.sos3)); mip3 = cat(4,mip3,double(X.mip3));
         T2s = cat(3,T2s,double(X.T2s)); T2m = cat(3,T2m,double(X.T2m));
     end
+    % Use the same number of replicas for both variants (the first PR_NR_MAX).
+    if size(T2s,3) < PR_NR_MAX
+        error('rev:TooFewReplicas', '%s: %d replicas found, %d needed. Fix: run rev_pseudoreplica.m for more chunks (PR_CHUNK = 1, 2, ...).', vn, size(T2s,3), PR_NR_MAX);
+    end
+    sos3 = sos3(:,:,:,1:PR_NR_MAX); mip3 = mip3(:,:,:,1:PR_NR_MAX);
+    T2s = T2s(:,:,1:PR_NR_MAX); T2m = T2m(:,:,1:PR_NR_MAX);
     NR = size(T2s,3);
     T2b = double(S1f.T2MAPsos(:,:,PR_TP,vi));
     mask = T2b>0 & T2b<=200 & double(S1f.img4isos(:,:,PR_TP,vi))>=3*noise_sos & ~oil100 & ~nearrod ...

@@ -248,6 +248,9 @@ for c_,idx in enumerate([1,2,3,4]):
     y,x,name=cfg[idx]; y=np.asarray(y); x=np.asarray(x); pool=s['POOL'][c_]
     beta,rssc=regression(x,y,True); bf,rssf=regression(x,y,False); sl=bf[-4:]
     put('Cv'+K4[c_],'%.1f',100*np.std(sl,ddof=1)/np.mean(sl))
+    # CV expected from fitting uncertainty alone: RMS of per-ROI OLS slope SEs / mean slope (np.polyfit covariance)
+    se_=[np.sqrt(np.polyfit(x[:,j],y[:,j],1,cov='unscaled')[1][0,0]*np.sum((y[:,j]-np.polyval(np.polyfit(x[:,j],y[:,j],1),x[:,j]))**2)/(x.shape[0]-2)) for j in range(x.shape[1])]
+    put('CvFit'+K4[c_],'%.1f',100*np.sqrt(np.mean(np.square(se_)))/np.mean(sl))
     if c_<2:
         ci=np.asarray(pool['ci']); rel=(ci[1]-ci[0])/2/beta[-1]
         put('Pool'+K4[c_],'%.4f',beta[-1]); put('PoolTwo'+K4[c_],'%.2f',beta[-1]); put('PoolLo'+K4[c_],'%.4f',ci[0]); put('PoolHi'+K4[c_],'%.4f',ci[1])
@@ -292,7 +295,10 @@ for nm_,A in TA.items():
     for k_ in range(4): put('Tcmp'+nm_+RN[k_],'%.1f',A[2,k_])
     put('TcmpMin'+nm_,'%.1f',A[2].min()); put('TcmpMax'+nm_,'%.1f',A[2].max()); put('Tref'+nm_,'%.1f',TR[nm_])
     close('Tref '+nm_+' = mean over time points 3-9 of all ROIs',TR[nm_],A[2:9].mean())
-for nm_,v_ in zip(['Pfa','Full','Gre'],np.asarray(s['thr_pct'])): put('ThrPct'+nm_,'%.0f',v_)
+# one display threshold for all three images (fraction of the own reference-rectangle mean)
+tp_=np.asarray(s['thr_pct'],float)
+close('Display threshold identical for PFA, Full and GRE (fix: statistics_analysis_final.m DISPLAY_FRAC)',tp_,np.full(3,tp_[0]),atol=1e-9,kind='consistency')
+put('DisplayFracPct','%.0f',tp_[0])
 # ---- secondary metrics added 2026-11-10: common-coefficient LOOCV, bootstrap intervals, in-sample SD, cooling rate
 CIDX=[1,2,3,4]
 common_e={}
@@ -330,12 +336,16 @@ put('SdFitSosMin','%.2f',sdfit[1:3].min()); put('SdFitSosMax','%.2f',sdfit[1:3].
 put('SdFitGreRemoteMin','%.2f',sdfit[0,[0,3]].min()); put('SdFitGreRemoteMax','%.2f',sdfit[0,[0,3]].max())
 cool_min=(np.max(r['scan_end_s'])-np.min(r['scan_start_s']))/60
 put('CoolRate','%.2f',(TT.max()-TT.min())/cool_min); put('CoolFiveMin','%.1f',5*(TT.max()-TT.min())/cool_min)
+sdT_=np.concatenate([np.asarray(r['temp1']).std(axis=0),np.asarray(r['temp3']).std(axis=0)])
+put('TempSdRoiMin','%.1f',sdT_.min()); put('TempSdRoiMax','%.1f',sdT_.max())
 
 # satellite files (written by supporting scripts) against their own result files
 nd=loadmat(data/'noise_dependence_summary.mat',simplify_cells=True)
 if int(nd.get('tp',0))==3:
     for nm_,v_ in zip(K4,np.asarray(nd['snr_replica'])): put('Snr'+nm_,'%.0f',v_)
     put('ReplicasPfa','%d',nd['n_replicas'][0]); put('ReplicasFull','%d',nd['n_replicas'][1]); put('SnrTp','%d',int(nd['tp']))
+    # the supplement quotes one replica count for both variants (Note S2)
+    close('Same pseudo-replica count for PFA and Full (Supplementary Note S2 quotes one count; fix: rerun rev_pseudoreplica_analysis.m with equal PR_NR_MAX)',nd['n_replicas'][0],nd['n_replicas'][1],kind='consistency')
 gr=out/'gre_timepoint_residual.mat'
 if gr.exists():
     q=loadmat(gr,simplify_cells=True); sd_=np.asarray(q['resid_sd']); sd2=np.asarray(q['resid_sd_ex2'])

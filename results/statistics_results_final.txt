@@ -9,7 +9,7 @@ native voxel (mm)       : 2.6585 readout x 2.56 phase encoding
 distance to rod (mm)    : [15 11 9 23]  (unrounded [15.4 10.6 9.48 23])
 
 Legacy patch-SD apparent SNR [GRE PFA-SOS Full-SOS PFA-MIP Full-MIP]: [71.547 294.1 273.82 667.7 692.35]
-Revised SNR [GRE PFA-SOS Full-SOS PFA-MIP Full-MIP]: [45.13 367.8 541.8 356.5 528.2]  (2DVSMSI: pseudo-replica noise SD, 210/200 replicas; GRE: Rayleigh-corrected upper-left corner, corners [45.1 42.7 40.2 35.7])
+Revised SNR [GRE PFA-SOS Full-SOS PFA-MIP Full-MIP]: [45.13 367.5 541.8 356.4 528.2]  (2DVSMSI: pseudo-replica noise SD, 200/200 replicas; GRE: Rayleigh-corrected upper-left corner, corners [45.1 42.7 40.2 35.7])
 TABLE 1  per-ROI slope (ms/degC or 1e-8/degC) and LOOCV RMSE (degC)
               ROI I   ROI II  ROI III   ROI IV
 PFA-SOS m     0.415    0.415    0.496    0.457  CV 8.7%
@@ -72,8 +72,8 @@ BLAND-ALTMAN SENSITIVITY with time point 2 included (BA_ALT = 2-9, 1920 pairs; d
 PFA-SOS  vs PRF  LOA [-1.80 +1.80]  Deming 0.830 [0.653 1.271]
 Full-SOS vs PRF  LOA [-1.88 +1.88]  Deming 0.754 [0.509 1.081]
 T_ref: PFA 39.734 Full 39.553 PRF 39.804 degC
-display threshold (3 x max of 10-pixel edge band, own magnitude at time point 3; GRE magnitude = series 0016, acquisition 2, the only GRE magnitude): PFA 2.234e-06 (24.6% of ref. rectangle) Full 1.952e-06 (19.8%) GRE 306 (29.5%)
-valid voxels: PFA 2178 Full 2160 PRF 3238
+display threshold (20% of the reference-rectangle mean of the own magnitude at time point 3; GRE magnitude = series 0016, acquisition 2, the only GRE magnitude): PFA 1.814e-06 Full 1.971e-06 GRE 207.2
+valid voxels: PFA 2205 Full 2167 PRF 3310
 
 REFERENCE INVARIANCE: dT2/ds referenced to all 9 time points vs time points 3-9 (max abs differences)
   GRE       slopes 8.27e-24  LOOCV errors 2.84e-14 degC
