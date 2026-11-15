@@ -1,5 +1,5 @@
 function [T2map] = RDNLS(roimg4i,ctrech,tesp,T2approx)
-% Purpose: voxelwise mono-exponential fitting of multi-echo magnitudes using a 0-400 ms grid with 0.05 ms steps; zero voxels whose first-echo magnitude is below three times the maximum magnitude in the 10-pixel image border (display rule, the same for 2DVSMSI and GRE).
+% Purpose: voxelwise mono-exponential fitting of multi-echo magnitudes using a 0-400 ms grid with 0.05 ms steps; zero voxels whose magnitude in the first fitted echo (16 ms; the 8 ms echo is removed before the call) is below three times the maximum magnitude in the 10-pixel image border (display rule, the same for 2DVSMSI and GRE).
 
 %img4i default n*n*4
 %T2approx need to be larger than T2real

@@ -38,7 +38,7 @@
 %     used by tbme_main.tex and tbme_supplementary.tex; the text and .mat
 %     results go to output/results (project.results).
 %   * Display masks: PFA and Full each take the threshold from their own
-%     first-time-point 16 ms SOS magnitude (3 x the maximum of the 10-pixel
+%     time-point-TP_CMP (= 3) 16 ms SOS magnitude (3 x the maximum of the 10-pixel
 %     edge band); GRE uses its own magnitude. Previously the PFA value was
 %     applied to both 2DVSMSI variants. The masks affect display and the
 %     Bland-Altman voxel selection only.%
