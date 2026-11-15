@@ -48,7 +48,7 @@ then in a shell:
 py -3.12 -I tests/verify_statistics.py     # independent check of the MATLAB results
 ```
 
-It prints "PASS: 125 independently recomputed checks + 14 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
+It prints "PASS: 125 independently recomputed checks + 13 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
 
 Three scripts overwrite derived files in `data/` in place (`code/build_probe_temperatures.m`, `code/supporting_analyses/rev_write_dependence_summary.m`, `code/reconstruct_all.m`); see REPRODUCIBILITY.md, section "Scripts that overwrite derived files", and keep a copy of `data/` before rerunning them.
 
@@ -110,7 +110,7 @@ De-identification of the GRE DICOM files: Patient's Name and ID were replaced by
 
 ## Use of generative AI
 
-Parts of the code were developed with the assistance of generative AI tools (Anthropic Claude via Claude Code; OpenAI ChatGPT/Codex) and were reviewed by the authors.
+Parts of the code were developed with the assistance of generative AI tools (Anthropic Claude, used through Cursor; OpenAI ChatGPT/Codex) and were reviewed by the authors.
 
 ## Contact
 

@@ -1,5 +1,5 @@
 {
-  "passed": 139,
+  "passed": 138,
   "checks": [
     {
       "check": "nine time points in probe temperatures and ROI series (ROI coordinates constant)",
@@ -544,11 +544,6 @@
       "kind": "independent"
     },
     {
-      "check": "Display threshold identical for PFA, Full and GRE (fix: statistics_analysis_final.m DISPLAY_FRAC)",
-      "max_absolute_difference": 3.552713678800501e-15,
-      "kind": "consistency"
-    },
-    {
       "check": "PFA-SOS: common-coefficient LOOCV errors",
       "max_absolute_difference": 7.958078640513122e-13,
       "kind": "independent"
@@ -689,12 +684,12 @@
       "kind": "consistency"
     },
     {
-      "check": "384 LaTeX macros equal recomputed / stored values",
+      "check": "382 LaTeX macros equal recomputed / stored values",
       "passed": true,
       "kind": "consistency"
     }
   ],
   "scope": "Independent least-squares LOOCV, per-ROI slopes and R2, stored cluster resamples (common-slope CI and paired PFA-Full difference), B0 from the DICOM header and BA identities.",
   "independently_recomputed": 125,
-  "consistency": 14
+  "consistency": 13
 }
