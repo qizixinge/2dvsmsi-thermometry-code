@@ -118,7 +118,7 @@ Three scripts write into `data/` in place; keep a copy of `data/` before rerunni
 After any reconstruction, ROI, temperature-array or statistics change:
 
 - `output/results/statistics_results_final.txt/.mat` and `numbers*.tex` were regenerated;
-- `py -3.12 -I tests/verify_statistics.py` passes (125 independently recomputed + 13 consistency checks);
+- `py -3.12 -I tests/verify_statistics.py` passes (137 independently recomputed + 13 consistency checks);
 - figures were regenerated;
 - probe temperatures are the 1 Hz log means over each scan's acquisition window with the 51 s offset corrected;
 - no claim describes within-series LOOCV as independent validation.

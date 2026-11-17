@@ -59,7 +59,10 @@ Full-SOS vs PRF  bias -0.00  LOA [-1.67 +1.67]  RMSE 0.851
   time point 8: PFA-SOS bias -0.37 LOA [-1.28 +0.54] | Full-SOS bias +0.14 LOA [-0.80 +1.09]
   time point 9: PFA-SOS bias +0.68 LOA [-0.35 +1.72] | Full-SOS bias +0.09 LOA [-1.61 +1.79]
 dT reference = mean over time points 3-9, so the pooled bias is zero by construction
-Deming slope (2DVSMSI dT on PRF dT), time-point bootstrap 95% CI: PFA-SOS 0.974 [0.695 1.517]  Full-SOS 0.805 [0.425 1.421]
+Grubbs error variances (degC^2): PFA 0.434 Full 0.458 GRE 0.113; Deming lambda = var(err 2DVSMSI)/var(err GRE): PFA 3.85 Full 4.06
+Deming slope (2DVSMSI dT on PRF dT, estimated lambda), time-point bootstrap 95% CI: PFA-SOS 0.877 [0.621 1.318]  Full-SOS 0.703 [0.330 1.051]
+  sensitivity lambda = 1 (orthogonal): PFA-SOS 0.974 [0.695 1.517]  Full-SOS 0.805 [0.425 1.421]
+  sensitivity lambda = Inf (OLS, GRE error-free): PFA-SOS 0.823 [0.578 1.202]  Full-SOS 0.661 [0.308 0.891]
 
 error bars drawn: +/-1 SD across the nine ROI voxels; SD range over 9 time points x 4 ROIs
   GRE      0.156-52.275 x1e-8
@@ -69,8 +72,9 @@ error bars drawn: +/-1 SD across the nine ROI voxels; SD range over 9 time point
   Full-MIP 0.079-0.713 ms
 
 BLAND-ALTMAN SENSITIVITY with time point 2 included (BA_ALT = 2-9, 1920 pairs; dT reference = mean over these)
-PFA-SOS  vs PRF  LOA [-1.80 +1.80]  Deming 0.830 [0.653 1.271]
-Full-SOS vs PRF  LOA [-1.88 +1.88]  Deming 0.754 [0.509 1.081]
+Deming lambda re-estimated for these time points: PFA 1.47 Full 1.44
+PFA-SOS  vs PRF  LOA [-1.80 +1.80]  Deming 0.802 [0.626 1.210]
+Full-SOS vs PRF  LOA [-1.88 +1.88]  Deming 0.729 [0.473 1.013]
 T_ref: PFA 39.734 Full 39.553 PRF 39.804 degC
 display threshold (3 x max of 10-pixel edge band, own magnitude at time point 3; GRE magnitude = series 0016, acquisition 2, the only GRE magnitude): PFA 2.234e-06 (24.6% of ref. rectangle) Full 1.952e-06 (19.8%) GRE 306 (29.5%)
 valid voxels: PFA 2178 Full 2160 PRF 3238

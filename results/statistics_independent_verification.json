@@ -1,5 +1,5 @@
 {
-  "passed": 138,
+  "passed": 150,
   "checks": [
     {
       "check": "nine time points in probe temperatures and ROI series (ROI coordinates constant)",
@@ -519,12 +519,72 @@
       "kind": "consistency"
     },
     {
+      "check": "Grubbs lambda (time points 2-9), PFA and Full",
+      "max_absolute_difference": 6.439293542825908e-15,
+      "kind": "independent"
+    },
+    {
       "check": "Deming slope with time point 2 included, Pfa",
-      "max_absolute_difference": 3.3306690738754696e-16,
+      "max_absolute_difference": 1.1102230246251565e-16,
       "kind": "independent"
     },
     {
       "check": "Deming slope with time point 2 included, Full",
+      "max_absolute_difference": 3.3306690738754696e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming pairs (time points 3-9) = re-referenced 2-9 pairs, PFA",
+      "max_absolute_difference": 2.4424906541753444e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming pairs (time points 3-9) = re-referenced 2-9 pairs, Full",
+      "max_absolute_difference": 2.5979218776228663e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming pairs (time points 3-9) = re-referenced 2-9 pairs, GRE",
+      "max_absolute_difference": 7.327471962526033e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Grubbs error variances PFA/Full/GRE",
+      "max_absolute_difference": 2.220446049250313e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Grubbs lambda PFA and Full",
+      "max_absolute_difference": 1.7763568394002505e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (estimated lambda), Pfa",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (Eq), Pfa",
+      "max_absolute_difference": 3.3306690738754696e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (Ols), Pfa",
+      "max_absolute_difference": 3.3306690738754696e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (estimated lambda), Full",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (Eq), Full",
+      "max_absolute_difference": 2.220446049250313e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Deming slope (Ols), Full",
       "max_absolute_difference": 0.0,
       "kind": "independent"
     },
@@ -684,12 +744,12 @@
       "kind": "consistency"
     },
     {
-      "check": "382 LaTeX macros equal recomputed / stored values",
+      "check": "399 LaTeX macros equal recomputed / stored values",
       "passed": true,
       "kind": "consistency"
     }
   ],
   "scope": "Independent least-squares LOOCV, per-ROI slopes and R2, stored cluster resamples (common-slope CI and paired PFA-Full difference), B0 from the DICOM header and BA identities.",
-  "independently_recomputed": 125,
+  "independently_recomputed": 137,
   "consistency": 13
 }

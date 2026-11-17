@@ -6,7 +6,7 @@
 %   Quantity: AlphaGre (1e-8/degC), Slope (ms/degC), Rmse/Mae/Bias/Maxe (degC, Bias signed), RmsOverall,
 %     Cv (between-ROI slope CV), TempSdRoiMin/Max (per-ROI sample SD of probe temperature), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,
 %     UncOne/UncEight (CI half-width scale at dT = 1 / 8 degC), BaLoa/BaBiasPool/BaLoPool/BaHiPool/BaRms (pooled),
-%     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi, Tcmp<Seq><Roi> (probe temperature at the
+%     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi (Deming, Grubbs-estimated lambda), DemLam/DemErrVar<Seq>/DemErrVarGre, DemEq*/DemOls* (lambda = 1 / OLS sensitivity), Tcmp<Seq><Roi> (probe temperature at the
 %     comparison time point), TcmpMin/Max<Seq>, Tref, ThrPct<Seq>, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.
 %   Signs: Bias*/Ba*Lo/Ba*Hi/BaBiasMin/Max carry an explicit sign as plain ASCII text; wrap in $...$ for a minus sign.
 %   Use \nName{} (not \nName followed by a letter) in running text.
@@ -321,20 +321,37 @@
 \newcommand{\nNumBaAltPairs}{1920}
 \newcommand{\nBaAltLoaPfa}{1.80}
 \newcommand{\nBaAltLoaFull}{1.88}
-\newcommand{\nBaAltDemPfa}{0.83}
-\newcommand{\nBaAltDemLoPfa}{0.65}
-\newcommand{\nBaAltDemHiPfa}{1.27}
-\newcommand{\nBaAltDemFull}{0.75}
-\newcommand{\nBaAltDemLoFull}{0.51}
-\newcommand{\nBaAltDemHiFull}{1.08}
+\newcommand{\nBaAltDemPfa}{0.80}
+\newcommand{\nBaAltDemLoPfa}{0.63}
+\newcommand{\nBaAltDemHiPfa}{1.21}
+\newcommand{\nBaAltDemFull}{0.73}
+\newcommand{\nBaAltDemLoFull}{0.47}
+\newcommand{\nBaAltDemHiFull}{1.01}
 \newcommand{\nBaBiasMin}{-1.10}
 \newcommand{\nBaBiasMax}{+0.89}
-\newcommand{\nDemPfa}{0.97}
-\newcommand{\nDemLoPfa}{0.69}
-\newcommand{\nDemHiPfa}{1.52}
-\newcommand{\nDemFull}{0.81}
-\newcommand{\nDemLoFull}{0.42}
-\newcommand{\nDemHiFull}{1.42}
+\newcommand{\nDemPfa}{0.88}
+\newcommand{\nDemLoPfa}{0.62}
+\newcommand{\nDemHiPfa}{1.32}
+\newcommand{\nDemLamPfa}{3.9}
+\newcommand{\nDemErrVarPfa}{0.43}
+\newcommand{\nDemEqPfa}{0.97}
+\newcommand{\nDemEqLoPfa}{0.69}
+\newcommand{\nDemEqHiPfa}{1.52}
+\newcommand{\nDemOlsPfa}{0.82}
+\newcommand{\nDemOlsLoPfa}{0.58}
+\newcommand{\nDemOlsHiPfa}{1.20}
+\newcommand{\nDemFull}{0.70}
+\newcommand{\nDemLoFull}{0.33}
+\newcommand{\nDemHiFull}{1.05}
+\newcommand{\nDemLamFull}{4.1}
+\newcommand{\nDemErrVarFull}{0.46}
+\newcommand{\nDemEqFull}{0.81}
+\newcommand{\nDemEqLoFull}{0.42}
+\newcommand{\nDemEqHiFull}{1.42}
+\newcommand{\nDemOlsFull}{0.66}
+\newcommand{\nDemOlsLoFull}{0.31}
+\newcommand{\nDemOlsHiFull}{0.89}
+\newcommand{\nDemErrVarGre}{0.11}
 \newcommand{\nTcmpGreI}{42.8}
 \newcommand{\nTcmpGreII}{41.8}
 \newcommand{\nTcmpGreIII}{42.1}

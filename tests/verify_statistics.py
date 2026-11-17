@@ -274,19 +274,40 @@ for q_ in range(2):
     put('BaLoPool'+BS[q_],'%+.2f',b['loa_lo']); put('BaHiPool'+BS[q_],'%+.2f',b['loa_hi']); put('BaRms'+BS[q_],'%.3f',b['rmse'])
     for it,tp in enumerate(range(3,10)):
         for nm_,col in (('BaBias',0),('BaLo',1),('BaHi',2)): put(nm_+BS[q_]+'Tp'+tw[tp-1],'%+.2f',BAt[it,3*q_+col])
-def _deming(xx,pp):
+def _deming(xx,pp,lam=1.0):
+    # slope of xx on pp; lam = var(err xx)/var(err pp); lam = inf -> OLS of xx on pp
     sxx=np.var(pp);syy=np.var(xx);sxy=np.cov(pp,xx,bias=True)[0,1]
-    return (syy-sxx+np.sqrt((syy-sxx)**2+4*sxy**2))/(2*sxy)
+    if np.isinf(lam): return sxy/sxx
+    return (syy-lam*sxx+np.sqrt((syy-lam*sxx)**2+4*lam*sxy**2))/(2*sxy)
+def _grubbs(x,y,p):
+    # error variances of three instruments with independent errors, from pairwise covariances
+    c=lambda u,v: np.mean((u-u.mean())*(v-v.mean()))
+    return np.array([c(x,x)-c(x,y)*c(x,p)/c(y,p), c(y,y)-c(x,y)*c(y,p)/c(x,p), c(p,p)-c(x,p)*c(y,p)/c(x,y)])
 aa_,bb_,pp_=[np.asarray(s[k_],dtype=float).ravel() for k_ in ('a_alt','b_alt','p_alt')]
 assert list(np.atleast_1d(s['BA_ALT']))==list(range(2,10))
 put('BaAltFirstTp','%d',2); put('NumBaAltPairs','%d',aa_.size)
-for nm_,xx_,dem_,ci_ in (('Pfa',aa_,s['DEMalt_pfa'],s['DEMalt_pfa_ci']),('Full',bb_,s['DEMalt_full'],s['DEMalt_full_ci'])):
+evalt_=_grubbs(aa_,bb_,pp_); lamalt_=evalt_[:2]/evalt_[2]
+close('Grubbs lambda (time points 2-9), PFA and Full',np.asarray(s['DEMalt_lam'],float),lamalt_,1e-9)
+for i_,(nm_,xx_,dem_,ci_) in enumerate((('Pfa',aa_,s['DEMalt_pfa'],s['DEMalt_pfa_ci']),('Full',bb_,s['DEMalt_full'],s['DEMalt_full_ci']))):
     d_=xx_-pp_; put('BaAltLoa'+nm_,'%.2f',1.96*np.std(d_,ddof=1))
-    close('Deming slope with time point 2 included, '+nm_,dem_,_deming(xx_,pp_),1e-9)
+    close('Deming slope with time point 2 included, '+nm_,dem_,_deming(xx_,pp_,lamalt_[i_]),1e-9)
     put('BaAltDem'+nm_,'%.2f',dem_); put('BaAltDemLo'+nm_,'%.2f',ci_[0]); put('BaAltDemHi'+nm_,'%.2f',ci_[1])
 put('BaBiasMin','%+.2f',BAt[:,[0,3]].min()); put('BaBiasMax','%+.2f',BAt[:,[0,3]].max())
-for nm_,v_,ci_ in (('Pfa',s['DEM_pfa'],s['DEM_pfa_ci']),('Full',s['DEM_full'],s['DEM_full_ci'])):
-    put('Dem'+nm_,'%.2f',v_); put('DemLo'+nm_,'%.2f',ci_[0]); put('DemHi'+nm_,'%.2f',ci_[1])
+# primary Deming (time points 3-9): the saved pairs must equal the time-point-2-9 pairs re-referenced to the 3-9 mean
+a3_,b3_,p3_=[np.asarray(s[k_],dtype=float).ravel() for k_ in ('a','b','p')]
+def _reref(v): X=v.reshape(8,-1).T[:,1:]; return (X-X.mean(1,keepdims=True)).T.ravel()
+for nm_,v_,w_ in (('PFA',a3_,aa_),('Full',b3_,bb_),('GRE',p3_,pp_)):
+    close('Deming pairs (time points 3-9) = re-referenced 2-9 pairs, '+nm_,v_,_reref(w_),1e-9)
+ev_=_grubbs(a3_,b3_,p3_); lam_=ev_[:2]/ev_[2]
+close('Grubbs error variances PFA/Full/GRE',np.asarray(s['DEM_errvar'],float),ev_,1e-9)
+close('Grubbs lambda PFA and Full',np.asarray(s['DEM_lam'],float),lam_,1e-9)
+put('DemErrVarGre','%.2f',ev_[2])
+for i_,(nm_,xx_) in enumerate((('Pfa',a3_),('Full',b3_))):
+    k_=nm_.lower()
+    for lab_,key_,lam__ in (('',f'DEM_{k_}',lam_[i_]),('Eq',f'DEMeq_{k_}',1.0),('Ols',f'DEMols_{k_}',np.inf)):
+        close(f'Deming slope ({lab_ or "estimated lambda"}), '+nm_,s[key_],_deming(xx_,p3_,lam__),1e-9)
+        ci_=s[key_+'_ci']; put('Dem'+lab_+nm_,'%.2f',s[key_]); put('Dem'+lab_+'Lo'+nm_,'%.2f',ci_[0]); put('Dem'+lab_+'Hi'+nm_,'%.2f',ci_[1])
+    put('DemLam'+nm_,'%.1f',lam_[i_]); put('DemErrVar'+nm_,'%.2f',ev_[i_])
 TA={'Gre':r['temprp1'],'Pfa':r['temp1'],'Full':r['temp3']}; TR={'Gre':s['Tref_prf'],'Pfa':s['Tref_pfa'],'Full':s['Tref_full']}
 for nm_,A in TA.items():
     for k_ in range(4): put('Tcmp'+nm_+RN[k_],'%.1f',A[2,k_])

@@ -76,7 +76,9 @@
 %     (both printed below).
 %   * PFA-vs-Full coefficient difference: paired cluster bootstrap (same resampled time points for
 %     both variants, same seed), reported as difference and 95% CI only.
-%   * Bland-Altman sensitivity with time point 2 included (BA_ALT = 2:9): LOA and Deming slope.
+%   * Deming slope of 2DVSMSI dT on GRE dT with the error-variance ratio estimated by Grubbs' three-instrument
+%     estimator (PFA, Full, GRE in the same voxels); lambda = 1 and OLS reported as sensitivity.
+%   * Bland-Altman sensitivity with time point 2 included (BA_ALT = 2:9): LOA and Deming slope (lambda re-estimated).
 %   * B0 for the PRF conversion comes from the DICOM ImagingFrequency (gre_params.m), not nominal 3 T.
 %
 % Sections
@@ -667,11 +669,24 @@ fprintf('Full-SOS vs PRF: bias %+.2f  LOA [%+.2f, %+.2f]  RMSE %.3f\n', BA2.bias
 % The pooled bias is zero by construction (dT referenced to the mean over
 % BA_TPS), so proportional agreement is summarised by the Deming slope of
 % 2DVSMSI dT on GRE dT, with a CI from resampling whole time points.
+% Error-variance ratio (user decision 2026-11-17, option A): the three methods measure the same
+% temperature change in the same voxels, so each method's error variance is estimated with Grubbs'
+% three-instrument estimator (assumes mutually independent errors), and the Deming slope uses
+% lambda = var(err 2DVSMSI) / var(err GRE), held at the full-data estimate in every bootstrap draw.
+% Sensitivity: lambda = 1 (orthogonal regression) and lambda -> Inf (ordinary least squares, GRE error-free).
 nt_ba = numel(BA_TPS);
-[DEM_pfa,  DEM_pfa_ci ] = deming_tp(reshape(a,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED);
-[DEM_full, DEM_full_ci] = deming_tp(reshape(b,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED);
-fprintf('Deming slope vs PRF dT: PFA-SOS %.3f [%.3f, %.3f] | Full-SOS %.3f [%.3f, %.3f] (time-point bootstrap)\n', ...
+[DEM_errvar, DEM_lam] = grubbs_ratio(a, b, p);     % errvar = [PFA Full GRE] (degC^2); lam = [PFA Full]
+[DEM_pfa,  DEM_pfa_ci ] = deming_tp(reshape(a,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, DEM_lam(1));
+[DEM_full, DEM_full_ci] = deming_tp(reshape(b,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, DEM_lam(2));
+[DEMeq_pfa,  DEMeq_pfa_ci ] = deming_tp(reshape(a,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, 1);
+[DEMeq_full, DEMeq_full_ci] = deming_tp(reshape(b,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, 1);
+[DEMols_pfa,  DEMols_pfa_ci ] = deming_tp(reshape(a,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, Inf);
+[DEMols_full, DEMols_full_ci] = deming_tp(reshape(b,n_vox,nt_ba), reshape(p,n_vox,nt_ba), NB, SEED, Inf);
+fprintf('Grubbs error variances (degC^2): PFA %.3f Full %.3f GRE %.3f; lambda PFA %.2f Full %.2f\n', DEM_errvar, DEM_lam);
+fprintf('Deming slope vs PRF dT (estimated lambda): PFA-SOS %.3f [%.3f, %.3f] | Full-SOS %.3f [%.3f, %.3f] (time-point bootstrap)\n', ...
     DEM_pfa, DEM_pfa_ci, DEM_full, DEM_full_ci);
+fprintf('  lambda = 1:   PFA-SOS %.3f [%.3f, %.3f] | Full-SOS %.3f [%.3f, %.3f]\n', DEMeq_pfa, DEMeq_pfa_ci, DEMeq_full, DEMeq_full_ci);
+fprintf('  lambda = Inf: PFA-SOS %.3f [%.3f, %.3f] | Full-SOS %.3f [%.3f, %.3f]\n', DEMols_pfa, DEMols_pfa_ci, DEMols_full, DEMols_full_ci);
 
 % Sensitivity: the same comparison with time point 2 included (BA_ALT = 2:9; dT reference = mean over
 % 2:9; valid-voxel masks recomputed with that reference; common slopes unchanged).  Reported in the supplement only.
@@ -692,8 +707,9 @@ for tp = BA_ALT
 end
 BAalt1 = bastats(a_alt, p_alt);  BAalt2 = bastats(b_alt, p_alt);
 nv_alt = nnz(selA);  nt_alt = numel(BA_ALT);
-[DEMalt_pfa,  DEMalt_pfa_ci ] = deming_tp(reshape(a_alt,nv_alt,nt_alt), reshape(p_alt,nv_alt,nt_alt), NB, SEED);
-[DEMalt_full, DEMalt_full_ci] = deming_tp(reshape(b_alt,nv_alt,nt_alt), reshape(p_alt,nv_alt,nt_alt), NB, SEED);
+[~, DEMalt_lam] = grubbs_ratio(a_alt, b_alt, p_alt);   % lambda re-estimated for this time-point set
+[DEMalt_pfa,  DEMalt_pfa_ci ] = deming_tp(reshape(a_alt,nv_alt,nt_alt), reshape(p_alt,nv_alt,nt_alt), NB, SEED, DEMalt_lam(1));
+[DEMalt_full, DEMalt_full_ci] = deming_tp(reshape(b_alt,nv_alt,nt_alt), reshape(p_alt,nv_alt,nt_alt), NB, SEED, DEMalt_lam(2));
 fprintf('Sensitivity, time points %d-%d (%d voxels, %d pairs): LOA PFA-SOS [%+.2f, %+.2f], Full-SOS [%+.2f, %+.2f]; Deming PFA %.3f [%.3f, %.3f], Full %.3f [%.3f, %.3f]\n', ...
     BA_ALT(1), BA_ALT(end), nv_alt, numel(a_alt), BAalt1.loa_lo, BAalt1.loa_hi, BAalt2.loa_lo, BAalt2.loa_hi, ...
     DEMalt_pfa, DEMalt_pfa_ci, DEMalt_full, DEMalt_full_ci);
@@ -778,8 +794,11 @@ for it = 1:numel(BA_TPS)
     fprintf(fid,'  time point %d: PFA-SOS bias %+.2f LOA [%+.2f %+.2f] | Full-SOS bias %+.2f LOA [%+.2f %+.2f]\n', BA_TPS(it), BA_tp(it,:));
 end
 fprintf(fid,'dT reference = mean over time points %d-%d, so the pooled bias is zero by construction\n', BA_TPS(1), BA_TPS(end));
-fprintf(fid,'Deming slope (2DVSMSI dT on PRF dT), time-point bootstrap 95%% CI: PFA-SOS %.3f [%.3f %.3f]  Full-SOS %.3f [%.3f %.3f]\n', ...
+fprintf(fid,'Grubbs error variances (degC^2): PFA %.3f Full %.3f GRE %.3f; Deming lambda = var(err 2DVSMSI)/var(err GRE): PFA %.2f Full %.2f\n', DEM_errvar, DEM_lam);
+fprintf(fid,'Deming slope (2DVSMSI dT on PRF dT, estimated lambda), time-point bootstrap 95%% CI: PFA-SOS %.3f [%.3f %.3f]  Full-SOS %.3f [%.3f %.3f]\n', ...
     DEM_pfa, DEM_pfa_ci, DEM_full, DEM_full_ci);
+fprintf(fid,'  sensitivity lambda = 1 (orthogonal): PFA-SOS %.3f [%.3f %.3f]  Full-SOS %.3f [%.3f %.3f]\n', DEMeq_pfa, DEMeq_pfa_ci, DEMeq_full, DEMeq_full_ci);
+fprintf(fid,'  sensitivity lambda = Inf (OLS, GRE error-free): PFA-SOS %.3f [%.3f %.3f]  Full-SOS %.3f [%.3f %.3f]\n', DEMols_pfa, DEMols_pfa_ci, DEMols_full, DEMols_full_ci);
 lab_ = {'PFA-SOS ','Full-SOS','PFA-MIP ','Full-MIP'};
 fprintf(fid,'\nerror bars drawn: +/-1 SD across the nine ROI voxels; SD range over %d time points x 4 ROIs\n', n_tp);
 fprintf(fid,'  GRE      %.3f-%.3f x1e-8\n', min(SDSp(:))*1e8, max(SDSp(:))*1e8);
@@ -788,6 +807,7 @@ for r_ = 1:4
     fprintf(fid,'  %s %.3f-%.3f ms\n', lab_{r_}, min(sd_{r_}(:)), max(sd_{r_}(:)));
 end
 fprintf(fid,'\nBLAND-ALTMAN SENSITIVITY with time point 2 included (BA_ALT = %d-%d, %d pairs; dT reference = mean over these)\n', BA_ALT(1), BA_ALT(end), numel(a_alt));
+fprintf(fid,'Deming lambda re-estimated for these time points: PFA %.2f Full %.2f\n', DEMalt_lam);
 fprintf(fid,'PFA-SOS  vs PRF  LOA [%+.2f %+.2f]  Deming %.3f [%.3f %.3f]\n', BAalt1.loa_lo, BAalt1.loa_hi, DEMalt_pfa, DEMalt_pfa_ci);
 fprintf(fid,'Full-SOS vs PRF  LOA [%+.2f %+.2f]  Deming %.3f [%.3f %.3f]\n', BAalt2.loa_lo, BAalt2.loa_hi, DEMalt_full, DEMalt_full_ci);
 fprintf(fid,'T_ref: PFA %.3f Full %.3f PRF %.3f degC\n', Tref_pfa, Tref_full, Tref_prf);
@@ -912,10 +932,17 @@ M = addm(M,'BaAltDemPfa','%.2f',DEMalt_pfa);   M = addm(M,'BaAltDemLoPfa','%.2f'
 M = addm(M,'BaAltDemFull','%.2f',DEMalt_full); M = addm(M,'BaAltDemLoFull','%.2f',DEMalt_full_ci(1)); M = addm(M,'BaAltDemHiFull','%.2f',DEMalt_full_ci(2));
 M = addm(M,'BaBiasMin','%+.2f',min(BA_tp(:,[1 4]),[],'all'));  M = addm(M,'BaBiasMax','%+.2f',max(BA_tp(:,[1 4]),[],'all'));
 dem_ = {DEM_pfa DEM_pfa_ci; DEM_full DEM_full_ci};
+demeq_ = {DEMeq_pfa DEMeq_pfa_ci; DEMeq_full DEMeq_full_ci};  demols_ = {DEMols_pfa DEMols_pfa_ci; DEMols_full DEMols_full_ci};
 for s_ = 1:2
     M = addm(M,['Dem' bseq{s_}],'%.2f',dem_{s_,1});
     M = addm(M,['DemLo' bseq{s_}],'%.2f',dem_{s_,2}(1));  M = addm(M,['DemHi' bseq{s_}],'%.2f',dem_{s_,2}(2));
+    M = addm(M,['DemLam' bseq{s_}],'%.1f',DEM_lam(s_));  M = addm(M,['DemErrVar' bseq{s_}],'%.2f',DEM_errvar(s_));
+    M = addm(M,['DemEq' bseq{s_}],'%.2f',demeq_{s_,1});
+    M = addm(M,['DemEqLo' bseq{s_}],'%.2f',demeq_{s_,2}(1));  M = addm(M,['DemEqHi' bseq{s_}],'%.2f',demeq_{s_,2}(2));
+    M = addm(M,['DemOls' bseq{s_}],'%.2f',demols_{s_,1});
+    M = addm(M,['DemOlsLo' bseq{s_}],'%.2f',demols_{s_,2}(1));  M = addm(M,['DemOlsHi' bseq{s_}],'%.2f',demols_{s_,2}(2));
 end
+M = addm(M,'DemErrVarGre','%.2f',DEM_errvar(3));
 Tall_ = {temprp1, temp1, temp3};  Tref_ = [Tref_prf Tref_full Tref_full];  Tref_(2) = Tref_pfa;
 for s_ = 1:3
     for k = 1:4, M = addm(M,['Tcmp' seqs{s_} roiN{k}],'%.1f',Tall_{s_}(TP_CMP,k)); end
@@ -936,6 +963,7 @@ save(fullfile(OUT_DIR,'statistics_results_final.mat'), ...
     'BA1','BA2','n_pairs','BOX_ROWS_128','BOX_COLS_128', ...
     'T_pfa','T_full','T_prf','dT_pfa','dT_full','dT_prf', ...
     'mk_pfa','mk_full','mk_prf','Tref_pfa','Tref_full','Tref_prf','SEED','NB','TP_CMP','BA_TPS','BA_tp','n_vox','DEM_pfa','DEM_pfa_ci','DEM_full','DEM_full_ci', ...
+    'a','b','p','DEM_errvar','DEM_lam','DEMeq_pfa','DEMeq_pfa_ci','DEMeq_full','DEMeq_full_ci','DEMols_pfa','DEMols_pfa_ci','DEMols_full','DEMols_full_ci','DEMalt_lam', ...
     'common_rmse','common_errors','boot_names','boot_rmse','boot_ci','sd_fit_roi','sd_fit_common','thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_');
 fprintf('\nwrote TBME figures to\n  %s\nand statistics_results_final.txt / .mat to\n  %s\n', FIG_DIR, OUT_DIR);
 
@@ -975,7 +1003,7 @@ fprintf(fid,'%%   Roi    : I | II | III | IV ;  Tp<Word>: time point spelled out
 fprintf(fid,'%%   Quantity: AlphaGre (1e-8/degC), Slope (ms/degC), Rmse/Mae/Bias/Maxe (degC, Bias signed), RmsOverall,\n');
 fprintf(fid,'%%     Cv (between-ROI slope CV), TempSdRoiMin/Max (per-ROI sample SD of probe temperature), Rsq (per-ROI R^2), ResCorrMax, PairDiff/PairDiffLo/PairDiffHi (PFA-SOS minus Full-SOS common slope, paired cluster bootstrap), Pool/PoolLo/PoolHi/PoolTwo (common slope, CI), RelHw,\n');
 fprintf(fid,'%%     UncOne/UncEight (CI half-width scale at dT = 1 / 8 degC), BaLoa/BaBiasPool/BaLoPool/BaHiPool/BaRms (pooled),\n');
-fprintf(fid,'%%     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi, Tcmp<Seq><Roi> (probe temperature at the\n');
+fprintf(fid,'%%     BaBias/BaLo/BaHi<Seq>Tp<Word> (Table S3), BaBiasMin/Max, Dem/DemLo/DemHi (Deming, Grubbs-estimated lambda), DemLam/DemErrVar<Seq>/DemErrVarGre, DemEq*/DemOls* (lambda = 1 / OLS sensitivity), Tcmp<Seq><Roi> (probe temperature at the\n');
 fprintf(fid,'%%     comparison time point), TcmpMin/Max<Seq>, Tref, ThrPct<Seq>, Fit*, Temp*, Num*, Gap*, Win*, Dist<Roi>.\n');
 fprintf(fid,'%%   Signs: Bias*/Ba*Lo/Ba*Hi/BaBiasMin/Max carry an explicit sign as plain ASCII text; wrap in $...$ for a minus sign.\n');
 fprintf(fid,'%%   Use \\nName{} (not \\nName followed by a letter) in running text.\n');
@@ -1227,23 +1255,39 @@ S.loa_lo = S.bias - 1.96*S.sd;  S.loa_hi = S.bias + 1.96*S.sd;
 S.rmse = sqrt(mean(d.^2));  S.n = n;
 end
 
-function [s, ci] = deming_tp(X, P, nb, seed)
-% Deming (equal error variances) slope of X on P; columns are time points.
-% Whole time points are resampled because voxels within one time point are
-% not independent.  Draws with fewer than three distinct time points are skipped.
-s = deming(X(:), P(:));
+function [s, ci] = deming_tp(X, P, nb, seed, lam)
+% Deming slope of X on P with error-variance ratio lam = var(err X)/var(err P)
+% (lam = 1: orthogonal regression; lam = Inf: ordinary least squares of X on P);
+% columns are time points.  Whole time points are resampled because voxels within
+% one time point are not independent; lam is held fixed in every draw.  Draws with
+% fewer than three distinct time points are skipped.
+if nargin < 5, lam = 1; end
+s = deming(X(:), P(:), lam);
 rng(seed);  nt = size(X,2);  bs = nan(nb,1);
 for i = 1:nb
     c = randi(nt, 1, nt);
     if numel(unique(c)) < 3, continue; end
-    bs(i) = deming(reshape(X(:,c),[],1), reshape(P(:,c),[],1));
+    bs(i) = deming(reshape(X(:,c),[],1), reshape(P(:,c),[],1), lam);
 end
 ci = prctile(bs(~isnan(bs)), [2.5 97.5]);
 end
 
-function s = deming(x, p)
+function s = deming(x, p, lam)
+% Deming slope of x on p; lam = var(err x)/var(err p).  lam = Inf gives cov(p,x)/var(p).
+if nargin < 3, lam = 1; end
 sxx = var(p,1);  syy = var(x,1);  c = cov(p,x,1);  sxy = c(1,2);
-s = (syy - sxx + sqrt((syy - sxx)^2 + 4*sxy^2))/(2*sxy);
+if isinf(lam), s = sxy/sxx; return; end
+s = (syy - lam*sxx + sqrt((syy - lam*sxx)^2 + 4*lam*sxy^2))/(2*sxy);
+end
+
+function [ev, lam] = grubbs_ratio(x, y, p)
+% Grubbs' three-instrument estimator: x, y and p measure the same quantity with
+% mutually independent errors, so var(err x) = var(x) - cov(x,y)*cov(x,p)/cov(y,p), etc.
+% Returns ev = [var(err x) var(err y) var(err p)] and lam = ev(1:2)/ev(3).
+C = cov([x(:) y(:) p(:)], 1);
+ev = [C(1,1) - C(1,2)*C(1,3)/C(2,3), C(2,2) - C(1,2)*C(2,3)/C(1,3), C(3,3) - C(1,3)*C(2,3)/C(1,2)];
+assert(all(ev > 0), 'grubbs_ratio: non-positive error variance; the independent-error model does not fit. Fix: report lambda = 1 and OLS only.');
+lam = ev(1:2)/ev(3);
 end
 
 function ba_panel(ax, mn, df, S, col, ylab, ttl, xr, yr)
