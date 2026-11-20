@@ -3,16 +3,22 @@
 % acquired k-space of time point PR_TP (default 3); each replica is reconstructed with
 % rev_recon_channels (k-space ordering of dataSOS/dataprocessing, POCS for PFA),
 % combined by SOS and MIP, and fitted with the RDNLS grid of RDNLS.m.
-% Inputs (optional, set before running): PR_NR (replicas per chunk), PR_CHUNK,
-% PR_VARIANTS (subset of {'PFA','Full'}), PR_TP (time point index).
+% Inputs (optional, set before running): PR_NR (replicas per chunk, default 100),
+% PR_CHUNK (chunk numbers to compute; default = all chunks needed for PR_NR_MAX = 200
+% replicas, i.e. 1:2), PR_VARIANTS (subset of {'PFA','Full'}), PR_TP (time point index),
+% PR_OVERWRITE (default false: a chunk whose file already exists is skipped, so the script
+% can simply be run again after an interruption; each chunk has a fixed seed).
 % Output: VSMSI_REV_DIR/pseudoreplica/<variant>_tp<k>_chunk<j>.mat
+% Run time on the laptop of the paper: about 10 min per 100 PFA replicas, 2.5 min per 100 Full.
 here = fileparts(mfilename('fullpath')); root = fileparts(here);
 addpath(root); addpath(here);
 project = project_paths(); addpath(project.mapvbvd);
 outdir = getenv('VSMSI_REV_DIR'); if isempty(outdir), outdir = project.supporting; end
 prdir = fullfile(outdir,'pseudoreplica'); if ~isfolder(prdir), mkdir(prdir); end
 if ~exist('PR_NR','var'), PR_NR = 100; end
-if ~exist('PR_CHUNK','var'), PR_CHUNK = 1; end
+if ~exist('PR_NR_MAX','var'), PR_NR_MAX = 200; end   % replicas per variant used by rev_pseudoreplica_analysis.m
+if ~exist('PR_CHUNK','var'), PR_CHUNK = 1:ceil(PR_NR_MAX/PR_NR); end
+if ~exist('PR_OVERWRITE','var'), PR_OVERWRITE = false; end
 if ~exist('PR_VARIANTS','var'), PR_VARIANTS = {'PFA','Full'}; end
 if ~exist('PR_TP','var'), PR_TP = 3; end     % time point of the illustrated images (TP_CMP)
 
@@ -50,9 +56,17 @@ L = chol((Psi_k+Psi_k')/2,'lower');
 for v = 1:numel(PR_VARIANTS)
     vn = PR_VARIANTS{v};
     if strcmp(vn,'PFA'), fn = files_pfa{PR_TP}; pff = 0.6; else, fn = files_full{PR_TP}; pff = 1; end
+    todo = PR_CHUNK;
+    if ~PR_OVERWRITE
+        done_ = arrayfun(@(ch) isfile(fullfile(prdir,sprintf('%s_tp%d_chunk%d.mat',vn,PR_TP,ch))), todo);
+        for ch = todo(done_), fprintf('%s tp%d chunk %d: file exists, skipped (set PR_OVERWRITE = true to recompute)\n', vn, PR_TP, ch); end
+        todo = todo(~done_);
+    end
+    if isempty(todo), continue; end
     tw = mapVBVD(fullfile(project.raw,fn)); raw0 = tw{end}.image(); clear tw
     [nx,nc,nl] = size(raw0);
-    seed = 20261012 + 1000*strcmp(vn,'Full') + 100*PR_TP + PR_CHUNK;
+    for chunk = todo
+    seed = 20261012 + 1000*strcmp(vn,'Full') + 100*PR_TP + chunk;
     rng(seed,'twister');
     sos3 = zeros(100,100,3,PR_NR,'single'); mip3 = sos3;
     T2s = zeros(100,100,PR_NR,'single'); T2m = T2s;
@@ -68,6 +82,7 @@ for v = 1:numel(PR_VARIANTS)
         T2s(:,:,r) = reshape(rev_t2fit(reshape(s,[],3)),100,100);
         T2m(:,:,r) = reshape(rev_t2fit(reshape(m,[],3)),100,100);
     end
-    fprintf('%s tp%d chunk %d: %d replicas in %.0f s (seed %d)\n', vn, PR_TP, PR_CHUNK, PR_NR, toc(t0), seed);
-    save(fullfile(prdir,sprintf('%s_tp%d_chunk%d.mat',vn,PR_TP,PR_CHUNK)),'sos3','mip3','T2s','T2m','seed','pff','fn','-v7.3');
+    fprintf('%s tp%d chunk %d: %d replicas in %.0f s (seed %d)\n', vn, PR_TP, chunk, PR_NR, toc(t0), seed);
+    save(fullfile(prdir,sprintf('%s_tp%d_chunk%d.mat',vn,PR_TP,chunk)),'sos3','mip3','T2s','T2m','seed','pff','fn','-v7.3');
+    end
 end
