@@ -50,7 +50,7 @@ py -3.12 -I tests/verify_statistics.py     # independent check of the MATLAB res
 
 It prints "PASS: 137 independently recomputed checks + 13 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header, Grubbs error variances and Deming slopes); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
 
-Three scripts overwrite derived files in `data/` in place (`code/build_probe_temperatures.m`, `code/supporting_analyses/rev_write_dependence_summary.m`, `code/reconstruct_all.m`); see REPRODUCIBILITY.md, section "Scripts that overwrite derived files", and keep a copy of `data/` before rerunning them.
+Four scripts overwrite derived files in `data/` in place (`code/build_probe_temperatures.m`, `code/supporting_analyses/rev_write_dependence_summary.m`, `code/supporting_analyses/rev_2b_precision.m`, `code/reconstruct_all.m`); see REPRODUCIBILITY.md, section "Scripts that overwrite derived files", and keep a copy of `data/` before rerunning them.
 
 MATLAB tests: `runtests('tests')`.
 
@@ -72,6 +72,7 @@ Every result number in the paper is a LaTeX macro written by the code (`numbers.
 | Table 1, supplementary tables, statistics in the text | `statistics_analysis_final.m` | `output/results/statistics_results_final.txt`, `numbers.tex` |
 | GRE time-point residual, GRE sensitivity | `rev_gre_timepoint_residual.m`, `rev_gre_calibration_sensitivity.m` | `numbers_gre_residual.tex`, `numbers_gre_sensitivity.tex` |
 | SNR (pseudo-replica) | `rev_pseudoreplica.m`, `rev_pseudoreplica_analysis.m`, `rev_write_dependence_summary.m` (raw data needed) | `numbers_snr.tex`, `data/noise_dependence_summary.mat` |
+| Single-measurement PFA precision (2b blocks) | `rev_2b_precision.m` (raw data needed), then `statistics_analysis_final.m` | `data/rev_2b_blocks.mat`, `numbers.tex` |
 | Readout field of view (265.8 mm) | `rev_readout_fov.m` (Pulseq; `.seq` files written by `sequence/`) | console output, `output/supporting/readout_fov.mat` |
 | Fig. 1 (photograph), Fig. 2 (drawing) | not code outputs | not included |
 
@@ -98,6 +99,7 @@ Analysis conventions in brief: nine time points; calibration and LOOCV use all n
 | `ROI_and_tempr_resolved.mat` | ROI coordinates, oil-reference ROIs and probe-temperature arrays (`temp1` PFA, `temp3` Full, `temprp1` GRE) |
 | `YX.mat` | rod geometry and oil-region display mask |
 | `noise_dependence_summary.mat` | pseudo-replica SNR (`snr_replica`, `n_replicas`) |
+| `rev_2b_blocks.mat` | ROI-mean apparent T2 and probe temperatures of the two back-to-back PFA blocks of the nine 2b scans (single-measurement precision) |
 | `probe_log_20250425.csv` | 1 Hz fluoroptic log (four channels) of the session |
 | `GRE_series00NN_phase.IMA`, `GRE_series0016_magnitude.IMA` | GRE DICOM files (series 0015, 0017, ..., 0031 = acquisitions 1-9, phase-difference images; series 0016 = magnitude, echo 1). De-identified (details below the table). Pixel data, echo times, imaging frequency and acquisition times are unchanged. |
 

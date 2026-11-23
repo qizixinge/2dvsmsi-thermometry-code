@@ -1,5 +1,5 @@
 {
-  "passed": 150,
+  "passed": 176,
   "checks": [
     {
       "check": "nine time points in probe temperatures and ROI series (ROI coordinates constant)",
@@ -744,12 +744,142 @@
       "kind": "consistency"
     },
     {
-      "check": "399 LaTeX macros equal recomputed / stored values",
+      "check": "GRE: LOOCV errors without time point 2",
+      "max_absolute_difference": 2.1316282072803006e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "GRE LOOCV RMSE without time point 2 equals gre_calibration_sensitivity.mat",
+      "max_absolute_difference": 4.6351811278100286e-15,
+      "kind": "consistency"
+    },
+    {
+      "check": "PFA-SOS: LOOCV errors without time point 2",
+      "max_absolute_difference": 3.552713678800501e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "Full-SOS: LOOCV errors without time point 2",
+      "max_absolute_difference": 2.1316282072803006e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors PFA-SOS fwd",
+      "max_absolute_difference": 2.6645352591003757e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors PFA-SOS online_now",
+      "max_absolute_difference": 4.440892098500626e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors PFA-SOS online_past",
+      "max_absolute_difference": 2.6645352591003757e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors PFA-SOS rev",
+      "max_absolute_difference": 2.6645352591003757e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors PFA-SOS fwd_nointerp",
+      "max_absolute_difference": 8.881784197001252e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors Full-SOS fwd",
+      "max_absolute_difference": 3.552713678800501e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors Full-SOS online_now",
+      "max_absolute_difference": 7.993605777301127e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors Full-SOS online_past",
+      "max_absolute_difference": 1.0658141036401503e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors Full-SOS rev",
+      "max_absolute_difference": 5.329070518200751e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "Far-to-near errors Full-SOS fwd_nointerp",
+      "max_absolute_difference": 1.7763568394002505e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Pfa slope",
+      "max_absolute_difference": 1.8318679906315083e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Pfa rmse",
+      "max_absolute_difference": 2.6201263381153694e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Pfa dist",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Pfa mag_rel",
+      "max_absolute_difference": 4.440892098500626e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Full slope",
+      "max_absolute_difference": 2.6645352591003757e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Full rmse",
+      "max_absolute_difference": 3.297362383136715e-14,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Full dist",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "ROI II position grid Full mag_rel",
+      "max_absolute_difference": 2.220446049250313e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "2b block 1 probe temperatures recomputed from the 1 Hz log",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "2b block 2 probe temperatures recomputed from the 1 Hz log",
+      "max_absolute_difference": 0.0,
+      "kind": "independent"
+    },
+    {
+      "check": "2b residuals r = (A1-A2)/m - (T1-T2)",
+      "max_absolute_difference": 6.661338147750939e-15,
+      "kind": "independent"
+    },
+    {
+      "check": "2b block 1 common-slope bootstrap CI (stored time-point resamples)",
+      "max_absolute_difference": 1.1102230246251565e-16,
+      "kind": "independent"
+    },
+    {
+      "check": "505 LaTeX macros equal recomputed / stored values",
       "passed": true,
       "kind": "consistency"
     }
   ],
   "scope": "Independent least-squares LOOCV, per-ROI slopes and R2, stored cluster resamples (common-slope CI and paired PFA-Full difference), B0 from the DICOM header and BA identities.",
-  "independently_recomputed": 137,
-  "consistency": 13
+  "independently_recomputed": 162,
+  "consistency": 14
 }

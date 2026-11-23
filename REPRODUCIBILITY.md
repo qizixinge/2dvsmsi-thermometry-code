@@ -40,7 +40,8 @@ Local absolute paths belong in environment variables, not in `.m` files.
 - `ROI_and_tempr_resolved.mat`: resolved modality-specific ROI coordinates, probe-temperature arrays (`temp1`/`temp3`/`temprp1`) and oil-reference ROIs;
 - `probe_log_20250425.csv`: the fluoroptic log read by `code/build_probe_temperatures.m`;
 - `YX.mat`: rod geometry and oil-region display mask;
-- `noise_dependence_summary.mat`: pseudo-replica SNR (`snr_replica`, `n_replicas`), written by `code/supporting_analyses/rev_write_dependence_summary.m`.
+- `noise_dependence_summary.mat`: pseudo-replica SNR (`snr_replica`, `n_replicas`), written by `code/supporting_analyses/rev_write_dependence_summary.m`;
+- `rev_2b_blocks.mat`: the single-measurement PFA precision: ROI-mean apparent T2 and probe temperature of the two back-to-back PFA blocks of the nine 2025-04-25 "2b" scans (MID00571-MID00619), written by `code/supporting_analyses/rev_2b_precision.m` from the raw 2b files (not in the repository). If it is missing, `statistics_analysis_final.m` warns and writes NaN for the 2b macros.
 
 `ROI_and_tempr_resolved.mat` is the authoritative ROI/temperature input for `statistics_analysis_final.m`.
 
@@ -65,7 +66,10 @@ GRE DICOM -> phaseMAPr_and_magmap.mat
 probe_log_20250425.csv (51 s clock offset corrected) + scan time stamps
   -> build_probe_temperatures.m -> ROI_and_tempr_resolved.mat (temp1, temp3, temprp1)
 
-derived maps + ROI_and_tempr_resolved.mat + YX.mat + noise_dependence_summary.mat
+raw 2b PFA k-space (MID00571-MID00619, two back-to-back blocks per file) + probe_log_20250425.csv
+  -> code/supporting_analyses/rev_2b_precision.m -> data/rev_2b_blocks.mat
+
+derived maps + ROI_and_tempr_resolved.mat + YX.mat + noise_dependence_summary.mat + rev_2b_blocks.mat
   -> statistics_analysis_final.m -> output/figures/*.png, output/results/statistics_results_final.txt/.mat, numbers.tex
 ```
 
@@ -83,7 +87,7 @@ run code/paper_figure.m
 py -3.12 -I tests/verify_statistics.py
 ```
 
-This checks the statistical calculations and figure generation; it does not test raw-data decoding or reconstruction. Run the MATLAB scripts sequentially. The regenerated `output/results/numbers*.tex` and `statistics_results_final.txt` are compared with `results/`. `numbers_snr.tex` is produced only from the raw-data pseudo-replica run (`rev_pseudoreplica.m`, `rev_pseudoreplica_analysis.m`, `rev_write_dependence_summary.m`); its reference copy is in `results/`.
+This checks the statistical calculations and figure generation; it does not test raw-data decoding or reconstruction. Run the MATLAB scripts sequentially. The regenerated `output/results/numbers*.tex` and `statistics_results_final.txt` are compared with `results/`. `numbers_snr.tex` is produced only from the raw-data pseudo-replica run (`rev_pseudoreplica.m`, `rev_pseudoreplica_analysis.m`, `rev_write_dependence_summary.m`); its reference copy is in `results/`. Likewise `data/rev_2b_blocks.mat` is produced only from the raw 2b files (`code/supporting_analyses/rev_2b_precision.m`, raw files in `data/` or `VSMSI_RAW_DIR`); the committed copy is what the analysis reads.
 
 Pseudo-replica SNR configuration (independent full re-runs from the raw k-space data reproduced all four SNR values exactly: on 2026-11-10 with the earlier 210 PFA / 200 Full replicas, and on 2026-11-13 with the current 200 / 200 replicas): time point 3 (PFA MID00582, Full MID00584); 200 replicas per variant, in chunks of 100/100 with seeds 20261313/20261314 (PFA) and 20262313/20262314 (Full) (MATLAB twister); `rev_pseudoreplica_analysis.m` uses the first `PR_NR_MAX` = 200 replicas of each variant (an extra 10-replica PFA chunk, seed 20261315, is ignored if present); noise covariance from the three lowest-energy frequency bins [3 8 9] of the raw Full data. The full chain takes about one hour on a 6-core laptop.
 
@@ -107,10 +111,11 @@ See the table in `README.md`. Every result number in the paper is a LaTeX macro 
 
 ## Scripts that overwrite derived files
 
-Three scripts write into `data/` in place; keep a copy of `data/` before rerunning them:
+Four scripts write into `data/` in place; keep a copy of `data/` before rerunning them:
 
 - `code/build_probe_temperatures.m` overwrites `data/ROI_and_tempr_resolved.mat` (probe arrays, scan times, window statistics; the hand-recorded arrays are kept as `*_manual`).
 - `code/supporting_analyses/rev_write_dependence_summary.m` overwrites `data/noise_dependence_summary.mat` and `numbers_snr.tex`; run it only after the pseudo-replica scripts (raw data needed).
+- `code/supporting_analyses/rev_2b_precision.m` overwrites `data/rev_2b_blocks.mat` (two back-to-back PFA blocks of the nine 2b scans, reconstructed with the paper pipeline; probe temperature per block from the 1 Hz log with the 51 s offset). It needs the raw files `meas_MID00571_*.dat` ... `meas_MID00619_*.dat` in `data/` or in `VSMSI_RAW_DIR` and stops with an error naming the missing file otherwise; with the 1b file `meas_MID00570_*.dat` present it first checks that its reader and pipeline reproduce the committed PFA map of time point 1.
 - `code/reconstruct_all.m` overwrites `data/T2MAP_and_img4i_native100.mat` (Part A, needs raw .dat files) and `data/phaseMAPr_and_magmap.mat` (Part B, needs only the phase DICOM files in `data/`; set the environment variable `VSMSI_PART_B_ONLY=1` to skip Part A). Part B uses the fixed DICOM rescale (RescaleSlope 2, RescaleIntercept -4096, phase = value/4096*pi), read and asserted per file.
 
 ## Output review checklist
@@ -118,7 +123,7 @@ Three scripts write into `data/` in place; keep a copy of `data/` before rerunni
 After any reconstruction, ROI, temperature-array or statistics change:
 
 - `output/results/statistics_results_final.txt/.mat` and `numbers*.tex` were regenerated;
-- `py -3.12 -I tests/verify_statistics.py` passes (137 independently recomputed + 13 consistency checks);
+- `py -3.12 -I tests/verify_statistics.py` passes (162 independently recomputed + 14 consistency checks);
 - figures were regenerated;
 - probe temperatures are the 1 Hz log means over each scan's acquisition window with the 51 s offset corrected;
 - no claim describes within-series LOOCV as independent validation.

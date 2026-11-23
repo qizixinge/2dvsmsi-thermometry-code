@@ -7,6 +7,9 @@ result is not required to match the pre-fix numeric baseline.
 reference-invariance check, B0 read from the DICOM header, acquisition-1 probe temperatures recomputed
 from the 1 Hz log, and a check that every macro in output/results/numbers*.tex equals
 the value recomputed here / stored in statistics_results_final.mat.
+
+2026-11-23: same-subset LOOCV without time point 2, far-to-near calibration with the GRE PRF signal,
+ROI II position sensitivity and the 2b back-to-back PFA precision (data/rev_2b_blocks.mat) recomputed here.
 """
 from pathlib import Path
 import sys, os
@@ -381,6 +384,126 @@ if gs.exists():
     close('GRE sensitivity primary set equals the main analysis (all nine time points)',np.asarray(q['alpha'])[0]*1e8,alpha,1e-9,kind='consistency')
     close('GRE sensitivity primary LOOCV RMSE equals the main analysis',np.asarray(q['rmse'])[0],s['loocv_rmse'][0],1e-9,kind='consistency')
 
+# ---- added 2026-11-23: same-subset LOOCV, far-to-near calibration, ROI II position, 2b precision
+def loo_roi(y,x):
+    # per-ROI leave-one-time-point-out errors (own slope and intercept, least squares), any number of rows
+    y=np.asarray(y,float); x=np.asarray(x,float); n=len(x); e=np.empty_like(y)
+    for j in range(y.shape[1]):
+        for t in range(n):
+            tr=np.arange(n)!=t; d=np.column_stack((np.ones(tr.sum()),x[tr,j]))
+            a0,b0=np.linalg.lstsq(d,y[tr,j],rcond=None)[0]; e[t,j]=(y[t,j]-a0)/b0-x[t,j]
+    return e
+rms=lambda v: float(np.sqrt(np.mean(np.asarray(v,float)**2)))
+# (1) same-subset LOOCV without time point 2, pooled near (II+III) and remote (I+IV)
+SUBT=[0,2,3,4,5,6,7,8]
+for q_,(nm_,key_) in enumerate((('GRE','Gre'),('PFA-SOS','PfaSos'),('Full-SOS','FullSos'))):
+    y,x,_=cfg[q_]; y=np.asarray(y,float); x=np.asarray(x,float)
+    e=loo_roi(y[SUBT],x[SUBT]); ea=loo_roi(y,x)
+    close(nm_+': LOOCV errors without time point 2',np.asarray(s['SUB'][q_]['errors']),e,1e-8)
+    put('RmsNearNoTwo'+key_,'%.2f',rms(e[:,[1,2]])); put('RmsRemoteNoTwo'+key_,'%.2f',rms(e[:,[0,3]]))
+    if q_>0:
+        for k_ in range(4): put('RmseNoTwo'+key_+RN[k_],'%.2f',rms(e[:,k_]))
+        put('RmsNear'+key_,'%.2f',rms(ea[:,[1,2]])); put('RmsRemote'+key_,'%.2f',rms(ea[:,[0,3]]))
+    elif gs.exists():
+        # GRE per-ROI values without time point 2 are reported as GreSensRmse* (rev_gre_calibration_sensitivity.m)
+        close('GRE LOOCV RMSE without time point 2 equals gre_calibration_sensitivity.mat',np.sqrt(np.mean(e**2,axis=0)),
+              np.asarray(loadmat(gs,simplify_cells=True)['rmse'])[1],1e-9,kind='consistency')
+# (2) far-to-near calibration with the GRE PRF signal (literature alpha, no probe at ROIs I/IV)
+ALIT=1e-8
+MIDT=(np.asarray(r['scan_start_s'],float)+np.asarray(r['scan_end_s'],float))/2      # 9 x [GRE PFA Full]
+dsr=np.asarray(cfg[0][0],float); Tgr=np.asarray(cfg[0][1],float)
+def lin_extrap(tq,tk,xk):
+    # piecewise-linear interpolation, linear extrapolation from the two nearest knots outside [tk[0], tk[-1]]
+    out=np.empty(len(tq))
+    for i,t in enumerate(tq):
+        a=0 if t<=tk[0] else (len(tk)-2 if t>=tk[-1] else int(np.max(np.where(tk[:-1]<=t)[0])))
+        out[i]=xk[a]+(xk[a+1]-xk[a])*(t-tk[a])/(tk[a+1]-tk[a])
+    return out
+def far_errors(y,tp,tq,scheme):
+    plan={'fwd':[(list(range(5)),j) for j in range(5,9)],'fwd_nointerp':[(list(range(5)),j) for j in range(5,9)],
+          'online_now':[(list(range(j+1)),j) for j in range(5,9)],'online_past':[(list(range(j)),j) for j in range(5,9)],
+          'rev':[(list(range(4,9)),j) for j in range(4)]}[scheme]
+    err=[]; sl=[]
+    for cal,j in plan:
+        if scheme=='fwd_nointerp': X=dsr[cal][:,[0,3]]/ALIT
+        else: X=np.column_stack([lin_extrap(tq[cal],MIDT[cal,0],dsr[cal,k_]/ALIT) for k_ in (0,3)])
+        m_=regression(X,y[cal][:,[0,3]],True)[0][-1]; sl.append(m_)
+        a=cal[-1] if scheme=='rev' else cal[0]
+        err.append((y[j,[1,2]]-y[a,[1,2]])/m_-(tp[j,[1,2]]-tp[a,[1,2]]))
+    return np.array(err),np.array(sl)
+FK={'fwd':'Fwd','online_now':'OnlineNow','online_past':'OnlinePast','rev':'Rev','fwd_nointerp':'NoInterp'}
+put('FarAlphaLit','%.1f',ALIT*1e8); put('FarCalLastTp','%d',5); put('FarTestFirstTp','%d',6)
+FARS=s['FAR']; sens={}
+for v_,(vn_,vk_,col_) in enumerate((('PFA-SOS','Pfa',1),('Full-SOS','Full',2))):
+    y=np.asarray(cfg[1+v_][0],float); tp=np.asarray(cfg[1+v_][1],float)
+    for sc_,sk_ in FK.items():
+        e,sl=far_errors(y,tp,MIDT[:,col_],sc_)
+        st_=[f_ for f_ in FARS if f_['variant']==vn_ and f_['scheme']==sc_]; assert len(st_)==1,(vn_,sc_)
+        close('Far-to-near errors %s %s'%(vn_,sc_),np.asarray(st_[0]['errors']),e,1e-8)
+        rr=np.sqrt(np.mean(e**2,axis=0))
+        put('FarRmse'+vk_+sk_+'II','%.2f',rr[0]); put('FarRmse'+vk_+sk_+'III','%.2f',rr[1]); put('FarRmse'+vk_+sk_+'Both','%.2f',rms(e))
+        if sc_=='fwd':
+            put('FarBias'+vk_+'FwdII','%+.2f',e[:,0].mean()); put('FarBias'+vk_+'FwdIII','%+.2f',e[:,1].mean())
+            put('FarMaxe'+vk_+'Fwd','%.2f',np.abs(e).max()); put('FarSlope'+vk_+'Fwd','%.3f',sl[0])
+        if sc_ in ('online_now','online_past','rev'): sens.setdefault(vk_,[]).extend(rr)
+    put('FarSensMin'+vk_,'%.2f',min(sens[vk_])); put('FarSensMax'+vk_,'%.2f',max(sens[vk_]))
+eg=(dsr[5:9][:,[1,2]]-dsr[0,[1,2]])/ALIT-(Tgr[5:9][:,[1,2]]-Tgr[0,[1,2]])
+put('FarGreRmseII','%.2f',rms(eg[:,0])); put('FarGreRmseIII','%.2f',rms(eg[:,1]))
+# (3) ROI II position sensitivity (3x3 window shifted towards the rod end)
+with h5py.File(data/'T2MAP_and_img4i_native100.mat') as h:
+    mag=np.asarray(h['img4isos']).transpose(3,2,1,0)
+geo=s['geometry']; rod=np.asarray(geo['rod_100'],float); pxm=np.asarray(geo['px_100'],float)
+def dist_ii(rw,cl):
+    R1,R2,C1,C2=rod
+    dc=min(np.hypot((a-rw)*pxm[0],(b-cl)*pxm[1]) for a in (R1,R2) for b in (C1,C2))
+    return min(dc,min(abs(rw-R1),abs(rw-R2))*pxm[0]) if C1<=cl<=C2 else dc
+DRS=[0,-1,-2]; DCS=[-1,0,1]; d1=[]; d2=[]; mgs=[]
+for v_,(vk_,var_,ctr_,tp_) in enumerate((('Pfa',0,s['C2D'][1],np.asarray(r['temp1'])[:,1]),('Full',2,s['C2D_full'][1],np.asarray(r['temp3'])[:,1]))):
+    G=np.empty((3,3,4))
+    for i_,dr in enumerate(DRS):
+        for j_,dc in enumerate(DCS):
+            rw,cl=int(ctr_[0])+dr,int(ctr_[1])+dc
+            v=sos[rw-2:rw+1,cl-2:cl+1,:,var_].reshape(9,-1); w=mag[rw-2:rw+1,cl-2:cl+1,:,var_].reshape(9,-1)
+            ok=np.isfinite(v)&(v>0); y=np.array([v[ok[:,t],t].mean() for t in range(9)]); mg=np.array([w[ok[:,t],t].mean() for t in range(9)])
+            G[i_,j_]=[np.polyfit(tp_,y,1)[0],rms(loo_roi(y[:,None],tp_[:,None])),dist_ii(rw,cl),mg.mean()]
+    G[:,:,3]/=G[0,1,3]
+    P_=s['POS'][v_]
+    for qq_,nm_ in enumerate(('slope','rmse','dist','mag_rel')):
+        close('ROI II position grid %s %s'%(vk_,nm_),np.asarray(P_[nm_]),G[:,:,qq_],1e-9)
+    put('PosSlopeMin'+vk_,'%.3f',G[1:,:,0].min()); put('PosSlopeMax'+vk_,'%.3f',G[1:,:,0].max())
+    put('PosRmseMin'+vk_,'%.2f',G[1:,:,1].min()); put('PosRmseMax'+vk_,'%.2f',G[1:,:,1].max())
+    put('PosDistZero'+vk_,'%.1f',G[0,1,2])
+    d1+=list(G[1,:,2]); d2+=list(G[2,:,2]); mgs+=list(G[1:,:,3].ravel())
+put('PosDistMinOne','%.1f',min(d1)); put('PosDistMaxOne','%.1f',max(d1)); put('PosDistMinTwo','%.1f',min(d2)); put('PosDistMaxTwo','%.1f',max(d2))
+put('PosMagMin','%.2f',min(mgs)); put('PosMagMax','%.2f',max(mgs))
+# (4) single-measurement PFA precision from the back-to-back 2b blocks (data/rev_2b_blocks.mat)
+PREC_NAMES=['PrecSd','PrecSdThree','PrecSdDiff','PrecMeanRes','PrecProbeChangeMin','PrecProbeChangeMax','PrecNumPairs','BlockOnePool',
+            'BlockOnePoolTwo','BlockOnePoolLo','BlockOnePoolHi','BlockOneCv','BlockOneRmsOverall']+[p_+k_ for k_ in RN for p_ in ('PrecSd','BlockOneSlope','BlockOneRmse')]
+fb=data/'rev_2b_blocks.mat'
+if fb.exists():
+    B=loadmat(fb,simplify_cells=True)
+    assert list(np.atleast_1d(B['mids']))==list(range(571,620,6)),'rev_2b_blocks.mat: unexpected MID list'
+    A1,A2,T1,T2=[np.asarray(B[k_],float) for k_ in ('A1','A2','T1','T2')]; t0=np.asarray(B['t_start'],float); t1=np.asarray(B['t_end'],float)
+    assert np.all(t0[:,1]>t1[:,0]) and np.allclose(t1-t0,t1[0,0]-t0[0,0],atol=0.01),'2b block windows: block 2 must follow block 1 and all windows must have equal length'
+    for b_,Tb in ((0,T1),(1,T2)):
+        rec=np.array([rows[(rows[:,0]>=np.ceil(t0[t,b_]-51))&(rows[:,0]<=np.floor(t1[t,b_]-51)),1:].mean(axis=0) for t in range(9)])
+        close('2b block %d probe temperatures recomputed from the 1 Hz log'%(b_+1),Tb,rec,1e-9)
+    yP,xP,_=cfg[1]; mP=regression(np.asarray(xP,float),np.asarray(yP,float),True)[0][-1]   # PFA-SOS common slope
+    rr_=(A1-A2)/mP-(T1-T2); dT_=T1-T2
+    close('2b residuals r = (A1-A2)/m - (T1-T2)',np.asarray(s['PREC']['r']),rr_,1e-10)
+    put('PrecSd','%.2f',np.std(rr_,ddof=1)/np.sqrt(2)); put('PrecSdThree','%.3f',np.std(rr_,ddof=1)/np.sqrt(2)); put('PrecSdDiff','%.2f',np.std(rr_,ddof=1))
+    put('PrecMeanRes','%+.3f',rr_.mean()); put('PrecProbeChangeMin','%.2f',dT_.min()); put('PrecProbeChangeMax','%.2f',dT_.max()); put('PrecNumPairs','%d',rr_.size)
+    y1=A1-A1.mean(axis=0)
+    beta,_=regression(T1,y1,True); bf,_=regression(T1,y1,False); sl1=bf[-4:]
+    bs1,val1=boot_slopes(T1,y1); ci1=np.quantile(bs1[val1],[.025,.975],method='hazen')
+    close('2b block 1 common-slope bootstrap CI (stored time-point resamples)',np.asarray(s['PREC']['b1_ci']),ci1)
+    e1=loo_roi(y1,T1); r1=np.sqrt(np.mean(e1**2,axis=0))
+    put('BlockOnePool','%.4f',beta[-1]); put('BlockOnePoolTwo','%.2f',beta[-1]); put('BlockOnePoolLo','%.4f',ci1[0]); put('BlockOnePoolHi','%.4f',ci1[1])
+    put('BlockOneCv','%.1f',100*np.std(sl1,ddof=1)/np.mean(sl1)); put('BlockOneRmsOverall','%.2f',np.sqrt(np.mean(r1**2)))
+    for k_ in range(4):
+        put('PrecSd'+RN[k_],'%.3f',np.std(rr_[:,k_],ddof=1)/np.sqrt(2)); put('BlockOneSlope'+RN[k_],'%.3f',sl1[k_]); put('BlockOneRmse'+RN[k_],'%.2f',r1[k_])
+else:
+    for nm_ in PREC_NAMES: E[nm_]='NaN'
 def read_macros(path,seen=None):
     seen=seen if seen is not None else set(); path=Path(path)
     if not path.exists() and (base/'results'/path.name).exists():

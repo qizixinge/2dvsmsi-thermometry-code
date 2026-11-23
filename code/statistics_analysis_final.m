@@ -81,6 +81,13 @@
 %   * Bland-Altman sensitivity with time point 2 included (BA_ALT = 2:9): LOA and Deming slope (lambda re-estimated).
 %   * B0 for the PRF conversion comes from the DICOM ImagingFrequency (gre_params.m), not nominal 3 T.
 %
+% REVISION 2026-11-23 (supporting statistics, macros appended only)
+%   * S5b same-subset LOOCV without time point 2 (GRE vs 2DVSMSI on the same time points), near/remote pooled.
+%   * S5c far-to-near calibration with the real GRE PRF signal at ROIs I/IV (literature alpha, no probe) -> ROIs II/III.
+%   * S5d ROI II position sensitivity (3x3 window shifted towards the rod end).
+%   * S5e single-measurement PFA precision from the back-to-back 2b blocks (data/rev_2b_blocks.mat,
+%     code/supporting_analyses/rev_2b_precision.m) and block 1 as a second PFA calibration.
+%
 % Sections
 %   S0  configuration and data loading
 %   S1  per-ROI calibration and PRF                    (tempfitT2old / PRFreconnew)
@@ -90,6 +97,7 @@
 %       Figure S1 MIP calibration curves
 %   S4  Figure 5  dT maps (NaN outside valid mask)     + Figure S2 absolute T
 %   S5  Figure S3 Bland-Altman on dT (bias + LOA only)
+%   S5b-e same-subset LOOCV, far-to-near calibration, ROI II position, 2b precision
 %   S6  text blocks and .mat of the results
 %   S7  LaTeX macros (numbers.tex)
 %
@@ -740,6 +748,120 @@ title(tlS3, sprintf('Bland-Altman of \\DeltaT within the reference box (time poi
 exportgraphics(figS3, fullfile(FIG_DIR,'FigS3_bland_altman.png'), 'Resolution',300,'BackgroundColor','white');
 
 %% ========================================================================
+%  S5b  SAME-SUBSET LOOCV: GRE and 2DVSMSI on the same time points
+%% ========================================================================
+% The GRE near-rod LOOCV error is dominated by time point 2, whose GRE phase image is the known outlier.
+% For a like-for-like comparison every method is also evaluated without time point 2 (time points 1, 3-9),
+% with the per-ROI LOOCV of S2 (own slope and intercept, one time point left out), and the held-out errors
+% are pooled over the near-rod ROIs (II, III) and the remote ROIs (I, IV).
+fprintf('\n---- S5b same-subset LOOCV (all nine vs without time point 2) ----\n');
+SUB_TPS = [1 3:n_tp];
+SUB = same_subset_loocv(loocv_cfg(1:3), loocv_errors(:,:,1:3), SUB_TPS);
+for q_ = 1:3
+    fprintf('%-9s all nine: near %.2f remote %.2f | without time point 2: per ROI [%s] near %.2f remote %.2f degC\n', SUB(q_).name, ...
+        SUB(q_).near_all, SUB(q_).remote_all, sprintf('%.2f ',SUB(q_).rmse_roi), SUB(q_).near, SUB(q_).remote);
+end
+
+%% ========================================================================
+%  S5c  FAR-TO-NEAR CALIBRATION WITH THE REAL GRE PRF (no probe in the calibration)
+%% ========================================================================
+% Calibration route that needs no probe: the GRE PRF temperature change at the remote ROIs I and IV
+% (X = ds/alpha with the literature alpha = 1e-8 /degC, no probe-fitted coefficient) is the temperature
+% reference.  X is linearly interpolated in time from the GRE window midpoints to each 2DVSMSI window midpoint
+% (outside the GRE range: linear extrapolation from the two nearest GRE points); only the GRE scans the scheme
+% allows are used.  The common slope of the ROI-mean apparent-T2 deviation on X (ROI-specific intercepts) over
+% the calibration time points converts the near-rod ROIs II and III; their probes are used only for the anchor
+% temperature and for scoring.  Schemes: fwd (primary; calibrate 1-5, test 6-9, anchor 1), online_now
+% (calibrate 1..j for test point j), online_past (1..j-1), rev (calibrate 5-9, test 1-4, anchor 9), and
+% fwd_nointerp (fwd with X taken at the GRE times, no interpolation).
+fprintf('\n---- S5c far-to-near calibration with the GRE PRF signal (literature alpha) ----\n');
+ALPHA_LIT = 1e-8;                                       % literature PRF coefficient, ds per degC
+FAR_CAL_LAST = 5;                                       % fwd: calibrate on time points 1-5, test 6-9
+t_mid = (R.scan_start_s + R.scan_end_s)/2;              % window midpoints, 9 x [GRE PFA Full], scanner clock (s)
+FAR_SCHEMES = {'fwd','online_now','online_past','rev','fwd_nointerp'};
+far_in = {'PFA-SOS', dMNS_p_sos, temp1, t_mid(:,2); 'Full-SOS', dMNS_f_sos, temp3, t_mid(:,3)};
+FAR = cell(1,0);
+for v_ = 1:2
+    for s_ = 1:numel(FAR_SCHEMES)
+        f_ = far_to_near(far_in{v_,1}, far_in{v_,2}, far_in{v_,3}, far_in{v_,4}, MNS_DS, t_mid(:,1), ALPHA_LIT, FAR_SCHEMES{s_}, FAR_CAL_LAST);
+        FAR{end+1} = f_; %#ok<AGROW>
+        fprintf('%-9s %-12s test %s: RMSE II %.2f III %.2f both %.2f | bias %+.2f %+.2f | max %.2f | slope %s\n', f_.variant, f_.scheme, ...
+            mat2str(f_.test_tp), f_.rmse, f_.rmse_both, f_.bias, f_.maxe, sprintf('%.3f ',f_.slopes));
+    end
+end
+FAR = [FAR{:}];
+% GRE itself near the rod with the literature alpha, same anchor (time point 1) and test points, no calibration
+FAR_GRE.test_tp = FAR_CAL_LAST+1:n_tp;
+FAR_GRE.errors = (MNS_DS(FAR_GRE.test_tp,[2 3]) - MNS_DS(1,[2 3]))/ALPHA_LIT - (temprp1(FAR_GRE.test_tp,[2 3]) - temprp1(1,[2 3]));
+FAR_GRE.rmse = sqrt(mean(FAR_GRE.errors.^2,1));
+fprintf('GRE near the rod, literature alpha, anchor time point 1, test %s: RMSE II %.2f III %.2f\n', mat2str(FAR_GRE.test_tp), FAR_GRE.rmse);
+% range of the per-ROI RMSE over the sensitivity schemes
+FAR_SENS = zeros(2,2);                                  % [min max] x [PFA; Full]
+for v_ = 1:2
+    sel_ = strcmp({FAR.variant}, far_in{v_,1}) & ismember({FAR.scheme}, {'online_now','online_past','rev'});
+    rr_ = vertcat(FAR(sel_).rmse);
+    FAR_SENS(v_,:) = [min(rr_(:)) max(rr_(:))];
+    fprintf('%-9s per-ROI RMSE over online_now/online_past/rev: %.2f-%.2f degC\n', far_in{v_,1}, FAR_SENS(v_,:));
+end
+
+%% ========================================================================
+%  S5d  ROI II POSITION SENSITIVITY
+%% ========================================================================
+% ROI II is the ROI nearest to the rod end.  Its 3x3 window is shifted by drow in {0,-1,-2} (towards the rod
+% end) and dcol in {-1,0,+1}; for each position: per-ROI slope against the ROI II probe, per-ROI LOOCV RMSE,
+% distance to the rod surface (rod_dist, ROI II rule) and the mean first-fitted-echo (16 ms) SOS magnitude
+% relative to the unshifted ROI.
+fprintf('\n---- S5d ROI II position sensitivity ----\n');
+POS_DR = [0 -1 -2];  POS_DC = [-1 0 1];
+POS = cell(1,2);
+pos_in = {'PFA-SOS', 1, C2D(2,:), temp1(:,2); 'Full-SOS', 3, C2D_full(2,:), temp3(:,2)};
+for v_ = 1:2
+    POS{v_} = roi_position(pos_in{v_,1}, T2MAPsos(:,:,:,pos_in{v_,2}), img4isos(:,:,:,pos_in{v_,2}), pos_in{v_,3}, pos_in{v_,4}, ...
+        POS_DR, POS_DC, ROD_R, ROD_C, PX_MM);
+end
+POS = [POS{:}];
+assert(abs(POS(1).slope(1,2)-m2_p_sos(2)) < 1e-10 && abs(POS(2).slope(1,2)-m2_f_sos(2)) < 1e-10 ...
+    && abs(POS(1).rmse(1,2)-loocv_rmse(2,2)) < 1e-10 && abs(POS(2).rmse(1,2)-loocv_rmse(3,2)) < 1e-10, 'stats:RoiPosition', ...
+    'The unshifted ROI II window does not reproduce the Table 1 slope/LOOCV. Fix: check roi_position against tempfitT2old.');
+for v_ = 1:2
+    for i_ = 1:numel(POS_DR)
+        for j_ = 1:numel(POS_DC)
+            fprintf('%-9s shift (%+d,%+d) centre %s: dist %.1f mm  slope %.3f  LOOCV %.2f  magnitude %.2f x  invalid %d/81\n', POS(v_).variant, ...
+                POS_DR(i_), POS_DC(j_), mat2str(POS(v_).centre(:,:,i_,j_)), POS(v_).dist(i_,j_), POS(v_).slope(i_,j_), POS(v_).rmse(i_,j_), ...
+                POS(v_).mag_rel(i_,j_), POS(v_).n_invalid(i_,j_));
+        end
+    end
+end
+POS_RANGE = pos_ranges(POS, POS_DR);
+fprintf('shifted towards the rod (drow < 0): PFA slope %.3f-%.3f LOOCV %.2f-%.2f | Full slope %.3f-%.3f LOOCV %.2f-%.2f | distance %.1f-%.1f mm (drow -1), %.1f-%.1f mm (drow -2) | magnitude %.2f-%.2f\n', ...
+    POS_RANGE.slope(1,:), POS_RANGE.rmse(1,:), POS_RANGE.slope(2,:), POS_RANGE.rmse(2,:), POS_RANGE.dist_one, POS_RANGE.dist_two, POS_RANGE.mag);
+
+%% ========================================================================
+%  S5e  SINGLE-MEASUREMENT PFA PRECISION FROM THE BACK-TO-BACK "2b" BLOCKS
+%% ========================================================================
+% data/rev_2b_blocks.mat (code/supporting_analyses/rev_2b_precision.m): ROI-mean apparent T2 and probe
+% temperature of the two independent back-to-back PFA blocks of the nine 2025-04-25 "2b" scans.
+% r = (A1 - A2)/m - (T1 - T2) with m = the PFA-SOS common slope; single-measurement SD = SD(r)/sqrt(2)
+% (difference of two independent measurements), pooled over 9 scans x 4 ROIs.  Block 1 alone is also
+% analysed as a second PFA calibration series with the S1b/S2 methods.
+fprintf('\n---- S5e single-measurement PFA precision (2b back-to-back blocks) ----\n');
+f2b_ = fullfile(project.data,'rev_2b_blocks.mat');
+if isfile(f2b_)
+    B2B = load(f2b_);
+else
+    warning('stats:Missing2b',['%s not found. The 2b precision entries are set to NaN. ' ...
+        'Fix: run code/supporting_analyses/rev_2b_precision.m (needs the raw 2b files, see its header), then rerun this script.'], f2b_);
+    B2B = [];
+end
+PREC = twob_precision(B2B, POOL(1).pooled, NB, SEED);
+if PREC.available
+    fprintf('single-measurement SD %.3f degC (%d pairs; per ROI %s), mean r %+.3f, SD of the difference %.3f, probe change between blocks %.2f-%.2f degC (slope %.4f)\n', ...
+        PREC.sd_single, PREC.n, sprintf('%.3f ',PREC.sd_roi), PREC.mean_r, PREC.sd_diff, PREC.dT_range, PREC.m);
+    fprintf('block 1 as a PFA calibration: slopes [%s] CV %.1f%% common %.4f [%.4f, %.4f]; LOOCV RMSE [%s] overall %.2f\n', ...
+        sprintf('%.3f ',PREC.b1_slopes), PREC.b1_cv, PREC.b1_common, PREC.b1_ci, sprintf('%.2f ',PREC.b1_rmse), PREC.b1_rmse_overall);
+end
+
+%% ========================================================================
 %  S6  TEXT BLOCKS + .mat OF THE RESULTS
 %% ========================================================================
 out = fullfile(OUT_DIR,'statistics_results_final.txt');
@@ -819,6 +941,45 @@ for m_ = 1:5
     fprintf(fid,'  %-9s slopes %.2e  LOOCV errors %.2e degC\n', inv_names{m_}, inv_slope(m_), inv_loocv(m_));
 end
 fprintf(fid,'time points used: calibration/LOOCV 1-%d; temperature-change maps, Bland-Altman and Deming %d-%d; illustrations at time point %d\n', n_tp, BA_TPS(1), BA_TPS(end), TP_CMP);
+fprintf(fid,'\nSAME-SUBSET LOOCV (per-ROI calibration as Table 1; RMSE in degC pooled over the near-rod ROIs II+III and the remote ROIs I+IV)\n');
+for q_ = 1:3
+    fprintf(fid,'%-9s all nine: near %.2f remote %.2f | without time point 2 (%s): per ROI [%s] near %.2f remote %.2f\n', SUB(q_).name, ...
+        SUB(q_).near_all, SUB(q_).remote_all, mat2str(SUB_TPS), sprintf('%.2f ',SUB(q_).rmse_roi), SUB(q_).near, SUB(q_).remote);
+end
+fprintf(fid,'\nFAR-TO-NEAR CALIBRATION WITH THE GRE PRF SIGNAL (no probe in the calibration; literature alpha %.1f x1e-8/degC; remote ROIs I+IV -> near ROIs II, III)\n', ALPHA_LIT*1e8);
+fprintf(fid,'X = ds/alpha at ROIs I and IV, linearly interpolated (extrapolated outside the known range) from GRE window midpoints to each 2DVSMSI window midpoint; common slope with ROI intercepts over the calibration time points; error = (y_j - y_anchor)/m - (T_j - T_anchor)\n');
+for i_ = 1:numel(FAR)
+    fprintf(fid,'%-9s %-12s test %s anchor %d: RMSE II %.2f III %.2f both %.2f | bias %+.2f %+.2f | max %.2f | slope %s\n', FAR(i_).variant, FAR(i_).scheme, ...
+        mat2str(FAR(i_).test_tp), FAR(i_).anchor, FAR(i_).rmse, FAR(i_).rmse_both, FAR(i_).bias, FAR(i_).maxe, sprintf('%.3f ',FAR(i_).slopes));
+end
+fprintf(fid,'GRE near the rod, literature alpha, no calibration, anchor time point 1, test %s: RMSE II %.2f III %.2f\n', mat2str(FAR_GRE.test_tp), FAR_GRE.rmse);
+fprintf(fid,'per-ROI RMSE range over online_now/online_past/rev: PFA-SOS %.2f-%.2f, Full-SOS %.2f-%.2f\n', FAR_SENS(1,:), FAR_SENS(2,:));
+fprintf(fid,'\nROI II POSITION SENSITIVITY (3x3 window shifted by drow towards the rod end and dcol; magnitude = mean 16 ms SOS magnitude relative to the unshifted window)\n');
+for v_ = 1:2
+    for i_ = 1:numel(POS_DR)
+        for j_ = 1:numel(POS_DC)
+            fprintf(fid,'%-9s shift (%+d,%+d) centre %s: dist %.1f mm  slope %.3f  LOOCV %.2f  magnitude %.2f  invalid %d/81\n', POS(v_).variant, ...
+                POS_DR(i_), POS_DC(j_), mat2str(POS(v_).centre(:,:,i_,j_)), POS(v_).dist(i_,j_), POS(v_).slope(i_,j_), POS(v_).rmse(i_,j_), ...
+                POS(v_).mag_rel(i_,j_), POS(v_).n_invalid(i_,j_));
+        end
+    end
+end
+fprintf(fid,'drow < 0: PFA-SOS slope %.3f-%.3f LOOCV %.2f-%.2f | Full-SOS slope %.3f-%.3f LOOCV %.2f-%.2f | distance %.1f-%.1f mm (drow -1), %.1f-%.1f mm (drow -2) | magnitude %.2f-%.2f\n', ...
+    POS_RANGE.slope(1,:), POS_RANGE.rmse(1,:), POS_RANGE.slope(2,:), POS_RANGE.rmse(2,:), POS_RANGE.dist_one, POS_RANGE.dist_two, POS_RANGE.mag);
+fprintf(fid,'\nSINGLE-MEASUREMENT PFA PRECISION (2025-04-25 2b scans, two back-to-back PFA blocks; data/rev_2b_blocks.mat)\n');
+if PREC.available
+    fprintf(fid,'MIDs %s; r = (A1-A2)/m - (T1-T2), m = PFA-SOS common slope %.4f\n', mat2str(B2B.mids), PREC.m);
+    fprintf(fid,'single-measurement SD %.3f degC (%d pairs), per ROI [%s]; mean r %+.3f; SD of the difference %.3f; probe change between blocks %.2f-%.2f degC\n', ...
+        PREC.sd_single, PREC.n, sprintf('%.3f ',PREC.sd_roi), PREC.mean_r, PREC.sd_diff, PREC.dT_range);
+    fprintf(fid,'block 1 as a PFA calibration: slopes [%s] R2 [%s] CV %.1f%% common %.4f CI [%.4f, %.4f]; LOOCV RMSE [%s] overall %.2f\n', ...
+        sprintf('%.3f ',PREC.b1_slopes), sprintf('%.3f ',PREC.b1_r2), PREC.b1_cv, PREC.b1_common, PREC.b1_ci, sprintf('%.2f ',PREC.b1_rmse), PREC.b1_rmse_overall);
+    for t_ = 1:size(B2B.A1,1)
+        fprintf(fid,'  MID %d: T block 1 [%s] block 2 [%s] degC; T2app block 1 [%s] block 2 [%s] ms; r [%s]\n', B2B.mids(t_), sprintf('%.3f ',B2B.T1(t_,:)), ...
+            sprintf('%.3f ',B2B.T2(t_,:)), sprintf('%.3f ',B2B.A1(t_,:)), sprintf('%.3f ',B2B.A2(t_,:)), sprintf('%+.3f ',PREC.r(t_,:)));
+    end
+else
+    fprintf(fid,'not available: data/rev_2b_blocks.mat missing (run code/supporting_analyses/rev_2b_precision.m)\n');
+end
 fclose(fid);
 
 %% ========================================================================
@@ -951,6 +1112,56 @@ for s_ = 1:3
 end
 thr_pct = 100*thr_disp./ref_sig;                 % [PFA Full GRE]
 M = addm(M,'ThrPctPfa','%.0f',thr_pct(1));  M = addm(M,'ThrPctFull','%.0f',thr_pct(2));  M = addm(M,'ThrPctGre','%.0f',thr_pct(3));
+% ---- added 2026-11-23: same-subset LOOCV, far-to-near calibration, ROI II position, 2b precision
+% Same-subset LOOCV.  GRE per-ROI values without time point 2 are GreSensRmse* (numbers_gre_sensitivity.tex) and the GRE
+% all-nine pooled values are RmsBootGreNear / RmsBootGreRemote, so they are not repeated here.
+for q_ = 2:3
+    for k = 1:4, M = addm(M,['RmseNoTwo' key5{q_} roiN{k}],'%.2f',SUB(q_).rmse_roi(k)); end
+    M = addm(M,['RmsNear' key5{q_}],'%.2f',SUB(q_).near_all);  M = addm(M,['RmsRemote' key5{q_}],'%.2f',SUB(q_).remote_all);
+end
+for q_ = 1:3
+    M = addm(M,['RmsNearNoTwo' key5{q_}],'%.2f',SUB(q_).near);  M = addm(M,['RmsRemoteNoTwo' key5{q_}],'%.2f',SUB(q_).remote);
+end
+% Far-to-near calibration with the GRE PRF signal
+far_key_ = struct('fwd','Fwd','online_now','OnlineNow','online_past','OnlinePast','rev','Rev','fwd_nointerp','NoInterp');
+far_var_ = struct('PFA_SOS','Pfa','Full_SOS','Full');
+M = addm(M,'FarAlphaLit','%.1f',ALPHA_LIT*1e8);
+M = addm(M,'FarCalLastTp','%d',FAR_CAL_LAST);  M = addm(M,'FarTestFirstTp','%d',FAR_CAL_LAST+1);
+for i_ = 1:numel(FAR)
+    nm_ = [far_var_.(strrep(FAR(i_).variant,'-','_')) far_key_.(FAR(i_).scheme)];
+    M = addm(M,['FarRmse' nm_ 'II'],'%.2f',FAR(i_).rmse(1));  M = addm(M,['FarRmse' nm_ 'III'],'%.2f',FAR(i_).rmse(2));
+    M = addm(M,['FarRmse' nm_ 'Both'],'%.2f',FAR(i_).rmse_both);
+    if strcmp(FAR(i_).scheme,'fwd')
+        M = addm(M,['FarBias' nm_ 'II'],'%+.2f',FAR(i_).bias(1));  M = addm(M,['FarBias' nm_ 'III'],'%+.2f',FAR(i_).bias(2));
+        M = addm(M,['FarMaxe' nm_],'%.2f',FAR(i_).maxe);           M = addm(M,['FarSlope' nm_],'%.3f',FAR(i_).slopes(1));
+    end
+end
+M = addm(M,'FarGreRmseII','%.2f',FAR_GRE.rmse(1));  M = addm(M,'FarGreRmseIII','%.2f',FAR_GRE.rmse(2));
+M = addm(M,'FarSensMinPfa','%.2f',FAR_SENS(1,1));   M = addm(M,'FarSensMaxPfa','%.2f',FAR_SENS(1,2));
+M = addm(M,'FarSensMinFull','%.2f',FAR_SENS(2,1));  M = addm(M,'FarSensMaxFull','%.2f',FAR_SENS(2,2));
+% ROI II position sensitivity (unshifted values = SlopePfaSosII, RmsePfaSosII, ... in Table 1)
+for v_ = 1:2
+    M = addm(M,['PosSlopeMin' bseq{v_}],'%.3f',POS_RANGE.slope(v_,1));  M = addm(M,['PosSlopeMax' bseq{v_}],'%.3f',POS_RANGE.slope(v_,2));
+    M = addm(M,['PosRmseMin' bseq{v_}],'%.2f',POS_RANGE.rmse(v_,1));    M = addm(M,['PosRmseMax' bseq{v_}],'%.2f',POS_RANGE.rmse(v_,2));
+    M = addm(M,['PosDistZero' bseq{v_}],'%.1f',POS(v_).dist(1,2));
+end
+M = addm(M,'PosDistMinOne','%.1f',POS_RANGE.dist_one(1));  M = addm(M,'PosDistMaxOne','%.1f',POS_RANGE.dist_one(2));
+M = addm(M,'PosDistMinTwo','%.1f',POS_RANGE.dist_two(1));  M = addm(M,'PosDistMaxTwo','%.1f',POS_RANGE.dist_two(2));
+M = addm(M,'PosMagMin','%.2f',POS_RANGE.mag(1));  M = addm(M,'PosMagMax','%.2f',POS_RANGE.mag(2));
+% 2b single-measurement precision and block-1 calibration (NaN when data/rev_2b_blocks.mat is missing)
+prec_ = {'PrecSd','%.2f',PREC.sd_single; 'PrecSdThree','%.3f',PREC.sd_single; 'PrecSdDiff','%.2f',PREC.sd_diff; ...
+         'PrecMeanRes','%+.3f',PREC.mean_r; 'PrecProbeChangeMin','%.2f',PREC.dT_range(1); 'PrecProbeChangeMax','%.2f',PREC.dT_range(2); ...
+         'PrecNumPairs','%d',PREC.n; 'BlockOnePool','%.4f',PREC.b1_common; 'BlockOnePoolTwo','%.2f',PREC.b1_common; ...
+         'BlockOnePoolLo','%.4f',PREC.b1_ci(1); 'BlockOnePoolHi','%.4f',PREC.b1_ci(2); 'BlockOneCv','%.1f',PREC.b1_cv; ...
+         'BlockOneRmsOverall','%.2f',PREC.b1_rmse_overall};
+for k = 1:4
+    prec_(end+1,:) = {['PrecSd' roiN{k}],'%.3f',PREC.sd_roi(k)}; %#ok<SAGROW>
+    prec_(end+1,:) = {['BlockOneSlope' roiN{k}],'%.3f',PREC.b1_slopes(k)}; %#ok<SAGROW>
+    prec_(end+1,:) = {['BlockOneRmse' roiN{k}],'%.2f',PREC.b1_rmse(k)}; %#ok<SAGROW>
+end
+for i_ = 1:size(prec_,1)
+    if PREC.available, M = addm(M,prec_{i_,1},prec_{i_,2},prec_{i_,3}); else, M = adds(M,prec_{i_,1},'NaN'); end
+end
 write_numbers(fullfile(OUT_DIR,'numbers.tex'), M);
 fprintf('wrote numbers.tex (%d macros)\n', numel(M));
 
@@ -964,7 +1175,8 @@ save(fullfile(OUT_DIR,'statistics_results_final.mat'), ...
     'T_pfa','T_full','T_prf','dT_pfa','dT_full','dT_prf', ...
     'mk_pfa','mk_full','mk_prf','Tref_pfa','Tref_full','Tref_prf','SEED','NB','TP_CMP','BA_TPS','BA_tp','n_vox','DEM_pfa','DEM_pfa_ci','DEM_full','DEM_full_ci', ...
     'a','b','p','DEM_errvar','DEM_lam','DEMeq_pfa','DEMeq_pfa_ci','DEMeq_full','DEMeq_full_ci','DEMols_pfa','DEMols_pfa_ci','DEMols_full','DEMols_full_ci','DEMalt_lam', ...
-    'common_rmse','common_errors','boot_names','boot_rmse','boot_ci','sd_fit_roi','sd_fit_common','thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_');
+    'common_rmse','common_errors','boot_names','boot_rmse','boot_ci','sd_fit_roi','sd_fit_common','thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_', ...
+    'SUB','SUB_TPS','FAR','FAR_GRE','FAR_SENS','ALPHA_LIT','FAR_CAL_LAST','POS','POS_DR','POS_DC','POS_RANGE','PREC');
 fprintf('\nwrote TBME figures to\n  %s\nand statistics_results_final.txt / .mat to\n  %s\n', FIG_DIR, OUT_DIR);
 
 %% ========================================================================
@@ -1311,4 +1523,124 @@ text(xr(1)+0.08, S.bias+0.12,  sprintf('bias = %+.2f \\circC', round(S.bias,2)+0
 text(xr(1)+0.08, S.loa_hi-0.12, sprintf('+1.96 SD = %+.2f', S.loa_hi),'FontSize',8.5,'Color',[0.3 0.3 0.3]);
 text(xr(1)+0.08, S.loa_lo+0.12, sprintf('-1.96 SD = %+.2f', S.loa_lo),'FontSize',8.5,'Color',[0.3 0.3 0.3]);
 set(gca,'FontSize',9); box on; hold off;
+end
+
+function S = same_subset_loocv(cfg, E_all, tps)
+% Per-ROI LOOCV (loocv_err) restricted to the time points tps, and near (II+III) / remote (I+IV) pooled RMSE;
+% *_all = the same pooling of the all-time-point held-out errors E_all (n_tp x 4 x method).
+S = struct('name',{},'tps',{},'errors',{},'rmse_roi',{},'near',{},'remote',{},'near_all',{},'remote_all',{});
+for q = 1:numel(cfg)
+    Y = cfg{q}{1};  T = cfg{q}{2};
+    E = loocv_err(Y(tps,:), T(tps,:));
+    Ea = E_all(:,:,q);
+    S(q).name = cfg{q}{3};  S(q).tps = tps;  S(q).errors = E;
+    S(q).rmse_roi = sqrt(mean(E.^2,1));
+    S(q).near = sqrt(mean(E(:,[2 3]).^2,'all'));    S(q).remote = sqrt(mean(E(:,[1 4]).^2,'all'));
+    S(q).near_all = sqrt(mean(Ea(:,[2 3]).^2,'all'));  S(q).remote_all = sqrt(mean(Ea(:,[1 4]).^2,'all'));
+end
+end
+
+function F = far_to_near(name, Y, Tp, t_q, ds, t_gre, alpha, scheme, n_cal)
+% Far-to-near calibration of one 2DVSMSI variant with the GRE PRF signal as the far temperature reference.
+%   Y, Tp  n_tp x 4 ROI-mean apparent-T2 deviation (ms) and probe temperature (degC; ROIs II, III only for scoring)
+%   t_q    n_tp x 1 window midpoints of the 2DVSMSI scans; t_gre n_tp x 1 GRE window midpoints (scanner clock, s)
+%   ds     n_tp x 4 GRE ROI-mean ds deviation; alpha literature PRF coefficient (ds per degC)
+% For each test time point j the scheme fixes the calibration time points cal (= the "known" GRE scans):
+%   fwd / fwd_nointerp: cal = 1..n_cal, j = n_cal+1..n_tp, anchor 1;   online_now: cal = 1..j, anchor 1;
+%   online_past: cal = 1..j-1, anchor 1;   rev: cal = n_tp-n_cal+1..n_tp, j = 1..n_tp-n_cal, anchor n_tp.
+% Far reference at ROIs I and IV: X = ds/alpha from the known GRE scans, linearly interpolated in time to t_q
+% (linear extrapolation from the two nearest known points outside their range); fwd_nointerp uses ds/alpha at
+% the same time point without interpolation.  m = common slope of Y on X over cal (ROIs I, IV, own intercepts).
+% Near ROIs II and III: error = (Y(j)-Y(anchor))/m - (Tp(j)-Tp(anchor)).
+n = size(Y,1);
+switch scheme
+    case {'fwd','fwd_nointerp'}, test = n_cal+1:n;  cal = arrayfun(@(j) 1:n_cal, test, 'UniformOutput', false);
+    case 'online_now',           test = n_cal+1:n;  cal = arrayfun(@(j) 1:j,     test, 'UniformOutput', false);
+    case 'online_past',          test = n_cal+1:n;  cal = arrayfun(@(j) 1:j-1,   test, 'UniformOutput', false);
+    case 'rev',                  test = 1:n-n_cal;  cal = arrayfun(@(j) n-n_cal+1:n, test, 'UniformOutput', false);
+    otherwise, error('stats:FarScheme','Unknown far-to-near scheme %s. Fix: use fwd, fwd_nointerp, online_now, online_past or rev.',scheme);
+end
+far = [1 4];  near = [2 3];
+e = zeros(numel(test),2);  sl = zeros(1,numel(test));
+for jj = 1:numel(test)
+    c = cal{jj};  j = test(jj);
+    X = zeros(n,4);
+    for k = far
+        if strcmp(scheme,'fwd_nointerp')
+            X(:,k) = ds(:,k)/alpha;
+        else
+            X(:,k) = interp1(t_gre(c), ds(c,k)/alpha, t_q, 'linear', 'extrap');
+        end
+    end
+    sl(jj) = anc(Y(c,far), X(c,far));
+    if strcmp(scheme,'rev'), a = c(end); else, a = c(1); end
+    e(jj,:) = (Y(j,near) - Y(a,near))/sl(jj) - (Tp(j,near) - Tp(a,near));
+end
+F.variant = name;  F.scheme = scheme;  F.test_tp = test;  F.anchor = a;  F.slopes = sl;  F.errors = e;
+F.rmse = sqrt(mean(e.^2,1));  F.rmse_both = sqrt(mean(e.^2,'all'));
+F.bias = mean(e,1);  F.maxe = max(abs(e),[],'all');
+end
+
+function P = roi_position(name, T2v, Mv, ctr, Tp, drs, dcs, ROD_R, ROD_C, PX)
+% ROI II window (3x3) shifted by (dr, dc): ROI-mean apparent T2 over time, per-ROI slope (own intercept) on the
+% probe temperature Tp, per-ROI LOOCV RMSE (loocv_err), distance to the rod surface (rod_dist, ROI II rule),
+% mean 16 ms SOS magnitude relative to the unshifted window.  Voxels with T2 <= 0 or NaN are left out (count kept).
+nd = numel(drs);  nc = numel(dcs);  n = size(T2v,3);
+P.variant = name;  P.drow = drs;  P.dcol = dcs;
+P.centre = zeros(1,2,nd,nc);  P.slope = zeros(nd,nc);  P.rmse = zeros(nd,nc);  P.dist = zeros(nd,nc);
+P.mag = zeros(nd,nc);  P.n_invalid = zeros(nd,nc);  P.series = zeros(n,nd,nc);
+for i = 1:nd
+    for j = 1:nc
+        c = ctr + [drs(i) dcs(j)];
+        y = zeros(n,1);  mg = zeros(n,1);  bad = 0;
+        for t = 1:n
+            v = reshape(T2v(c(1)+(-1:1), c(2)+(-1:1), t),[],1);
+            w = reshape(Mv(c(1)+(-1:1), c(2)+(-1:1), t),[],1);
+            ok = isfinite(v) & v > 0;  bad = bad + nnz(~ok);
+            y(t) = mean(v(ok));  mg(t) = mean(w(ok));
+        end
+        rf = roifit(y, Tp);
+        P.centre(:,:,i,j) = c;  P.slope(i,j) = rf.slope;  P.rmse(i,j) = sqrt(mean(loocv_err(y, Tp).^2));
+        P.dist(i,j) = rod_dist(c, ROD_R(1),ROD_R(2),ROD_C(1),ROD_C(2), PX, 2);
+        P.mag(i,j) = mean(mg);  P.n_invalid(i,j) = bad;  P.series(:,i,j) = y;
+    end
+end
+P.mag_rel = P.mag / P.mag(drs==0, dcs==0);
+end
+
+function G = pos_ranges(P, drs)
+% Ranges over the windows shifted towards the rod end (drow < 0): slope and LOOCV per variant (rows = P),
+% distance for drow = -1 and -2 and relative magnitude over both variants.
+sh = drs < 0;
+G.slope = zeros(numel(P),2);  G.rmse = zeros(numel(P),2);  d1 = [];  d2 = [];  mg = [];
+for v = 1:numel(P)
+    s = P(v).slope(sh,:);  r = P(v).rmse(sh,:);
+    G.slope(v,:) = [min(s(:)) max(s(:))];  G.rmse(v,:) = [min(r(:)) max(r(:))];
+    d1 = [d1, P(v).dist(drs==-1,:)];  d2 = [d2, P(v).dist(drs==-2,:)];  %#ok<AGROW>
+    m = P(v).mag_rel(sh,:);  mg = [mg; m(:)];  %#ok<AGROW>
+end
+G.dist_one = [min(d1) max(d1)];  G.dist_two = [min(d2) max(d2)];  G.mag = [min(mg) max(mg)];
+end
+
+function P = twob_precision(B, m, NB, SEED)
+% Single-measurement precision from the two back-to-back PFA blocks of the 2b scans, and block 1 as a separate
+% PFA calibration series (common slope with cluster-bootstrap CI as S1b, per-ROI slopes, CV, per-ROI LOOCV as S2).
+% B = load('rev_2b_blocks.mat') or [] (then every field is NaN and P.available = false).
+P.available = ~isempty(B);  P.m = m;
+if ~P.available
+    P.r = nan(9,4);  P.dT_probe = nan(9,4);  P.dT_range = [NaN NaN];  P.n = NaN;
+    P.sd_single = NaN;  P.sd_roi = nan(1,4);  P.mean_r = NaN;  P.sd_diff = NaN;
+    P.b1_slopes = nan(1,4);  P.b1_r2 = nan(1,4);  P.b1_cv = NaN;  P.b1_common = NaN;  P.b1_ci = [NaN NaN];
+    P.b1_errors = nan(9,4);  P.b1_rmse = nan(1,4);  P.b1_rmse_overall = NaN;
+    return
+end
+r = (B.A1 - B.A2)/m - (B.T1 - B.T2);
+P.r = r;  P.dT_probe = B.T1 - B.T2;  P.dT_range = [min(P.dT_probe(:)) max(P.dT_probe(:))];  P.n = numel(r);
+P.sd_single = std(r(:))/sqrt(2);  P.sd_roi = std(r,0,1)/sqrt(2);  P.mean_r = mean(r(:));  P.sd_diff = std(r(:));
+Y1 = B.A1 - mean(B.A1,1);                 % deviation from the time mean (the ROI intercepts absorb the reference)
+[sl,mc] = common_fit(Y1, B.T1);  rf = roifit(Y1, B.T1);
+[~,ci] = pooled_boot(Y1, B.T1, NB, SEED);
+E = loocv_err(Y1, B.T1);
+P.b1_slopes = sl;  P.b1_r2 = rf.r2;  P.b1_cv = 100*std(sl)/mean(sl);  P.b1_common = mc;  P.b1_ci = ci;
+P.b1_errors = E;  P.b1_rmse = sqrt(mean(E.^2,1));  P.b1_rmse_overall = sqrt(mean(P.b1_rmse.^2));
 end

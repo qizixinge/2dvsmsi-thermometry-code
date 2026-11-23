@@ -86,3 +86,58 @@ REFERENCE INVARIANCE: dT2/ds referenced to all 9 time points vs time points 3-9 
   PFA-MIP   slopes 1.11e-16  LOOCV errors 0.00e+00 degC
   Full-MIP  slopes 1.11e-16  LOOCV errors 7.11e-15 degC
 time points used: calibration/LOOCV 1-9; temperature-change maps, Bland-Altman and Deming 3-9; illustrations at time point 3
+
+SAME-SUBSET LOOCV (per-ROI calibration as Table 1; RMSE in degC pooled over the near-rod ROIs II+III and the remote ROIs I+IV)
+GRE       all nine: near 4.92 remote 0.14 | without time point 2 ([1 3 4 5 6 7 8 9]): per ROI [0.16 1.77 1.39 0.15 ] near 1.59 remote 0.16
+PFA-SOS   all nine: near 0.65 remote 0.64 | without time point 2 ([1 3 4 5 6 7 8 9]): per ROI [0.61 0.47 0.85 0.83 ] near 0.69 remote 0.73
+Full-SOS  all nine: near 0.85 remote 0.39 | without time point 2 ([1 3 4 5 6 7 8 9]): per ROI [0.33 0.93 0.70 0.41 ] near 0.82 remote 0.37
+
+FAR-TO-NEAR CALIBRATION WITH THE GRE PRF SIGNAL (no probe in the calibration; literature alpha 1.0 x1e-8/degC; remote ROIs I+IV -> near ROIs II, III)
+X = ds/alpha at ROIs I and IV, linearly interpolated (extrapolated outside the known range) from GRE window midpoints to each 2DVSMSI window midpoint; common slope with ROI intercepts over the calibration time points; error = (y_j - y_anchor)/m - (T_j - T_anchor)
+PFA-SOS   fwd          test [6 7 8 9] anchor 1: RMSE II 0.86 III 0.63 both 0.76 | bias +0.78 -0.50 | max 1.16 | slope 0.533 0.533 0.533 0.533 
+PFA-SOS   online_now   test [6 7 8 9] anchor 1: RMSE II 0.46 III 1.06 both 0.82 | bias +0.35 -1.02 | max 1.47 | slope 0.493 0.501 0.496 0.469 
+PFA-SOS   online_past  test [6 7 8 9] anchor 1: RMSE II 0.56 III 0.86 both 0.73 | bias +0.52 -0.83 | max 1.07 | slope 0.533 0.493 0.501 0.496 
+PFA-SOS   rev          test [1 2 3 4] anchor 9: RMSE II 0.45 III 0.97 both 0.75 | bias -0.26 +0.34 | max 1.60 | slope 0.423 0.423 0.423 0.423 
+PFA-SOS   fwd_nointerp test [6 7 8 9] anchor 1: RMSE II 0.38 III 1.26 both 0.93 | bias +0.21 -1.21 | max 1.69 | slope 0.475 0.475 0.475 0.475 
+Full-SOS  fwd          test [6 7 8 9] anchor 1: RMSE II 0.94 III 0.84 both 0.89 | bias -0.56 -0.35 | max 1.75 | slope 0.410 0.410 0.410 0.410 
+Full-SOS  online_now   test [6 7 8 9] anchor 1: RMSE II 1.42 III 1.21 both 1.32 | bias -1.17 -0.92 | max 2.51 | slope 0.383 0.362 0.365 0.375 
+Full-SOS  online_past  test [6 7 8 9] anchor 1: RMSE II 1.45 III 1.23 both 1.35 | bias -1.08 -0.84 | max 2.75 | slope 0.410 0.383 0.362 0.365 
+Full-SOS  rev          test [1 2 3 4] anchor 9: RMSE II 1.76 III 1.05 both 1.45 | bias +1.65 +0.97 | max 2.70 | slope 0.367 0.367 0.367 0.367 
+Full-SOS  fwd_nointerp test [6 7 8 9] anchor 1: RMSE II 1.78 III 1.54 both 1.66 | bias -1.51 -1.24 | max 3.07 | slope 0.353 0.353 0.353 0.353 
+GRE near the rod, literature alpha, no calibration, anchor time point 1, test [6 7 8 9]: RMSE II 2.02 III 1.05
+per-ROI RMSE range over online_now/online_past/rev: PFA-SOS 0.45-1.06, Full-SOS 1.05-1.76
+
+ROI II POSITION SENSITIVITY (3x3 window shifted by drow towards the rod end and dcol; magnitude = mean 16 ms SOS magnitude relative to the unshifted window)
+PFA-SOS   shift (+0,-1) centre [74 51]: dist 10.6 mm  slope 0.428  LOOCV 0.50  magnitude 0.99  invalid 0/81
+PFA-SOS   shift (+0,+0) centre [74 52]: dist 10.6 mm  slope 0.415  LOOCV 0.45  magnitude 1.00  invalid 0/81
+PFA-SOS   shift (+0,+1) centre [74 53]: dist 10.9 mm  slope 0.380  LOOCV 0.58  magnitude 0.99  invalid 0/81
+PFA-SOS   shift (-1,-1) centre [73 51]: dist 8.0 mm  slope 0.430  LOOCV 0.50  magnitude 0.92  invalid 0/81
+PFA-SOS   shift (-1,+0) centre [73 52]: dist 8.0 mm  slope 0.430  LOOCV 0.49  magnitude 0.94  invalid 0/81
+PFA-SOS   shift (-1,+1) centre [73 53]: dist 8.4 mm  slope 0.397  LOOCV 0.65  magnitude 0.95  invalid 0/81
+PFA-SOS   shift (-2,-1) centre [72 51]: dist 5.3 mm  slope 0.369  LOOCV 0.72  magnitude 0.79  invalid 0/81
+PFA-SOS   shift (-2,+0) centre [72 52]: dist 5.3 mm  slope 0.400  LOOCV 0.64  magnitude 0.84  invalid 0/81
+PFA-SOS   shift (-2,+1) centre [72 53]: dist 5.9 mm  slope 0.419  LOOCV 0.86  magnitude 0.90  invalid 0/81
+Full-SOS  shift (+0,-1) centre [74 50]: dist 10.6 mm  slope 0.383  LOOCV 1.18  magnitude 0.98  invalid 0/81
+Full-SOS  shift (+0,+0) centre [74 51]: dist 10.6 mm  slope 0.412  LOOCV 0.99  magnitude 1.00  invalid 0/81
+Full-SOS  shift (+0,+1) centre [74 52]: dist 10.6 mm  slope 0.406  LOOCV 1.04  magnitude 1.01  invalid 0/81
+Full-SOS  shift (-1,-1) centre [73 50]: dist 8.0 mm  slope 0.416  LOOCV 0.92  magnitude 0.91  invalid 0/81
+Full-SOS  shift (-1,+0) centre [73 51]: dist 8.0 mm  slope 0.428  LOOCV 0.77  magnitude 0.93  invalid 0/81
+Full-SOS  shift (-1,+1) centre [73 52]: dist 8.0 mm  slope 0.421  LOOCV 0.77  magnitude 0.96  invalid 0/81
+Full-SOS  shift (-2,-1) centre [72 50]: dist 5.3 mm  slope 0.396  LOOCV 0.72  magnitude 0.79  invalid 0/81
+Full-SOS  shift (-2,+0) centre [72 51]: dist 5.3 mm  slope 0.392  LOOCV 0.67  magnitude 0.80  invalid 0/81
+Full-SOS  shift (-2,+1) centre [72 52]: dist 5.3 mm  slope 0.410  LOOCV 0.75  magnitude 0.86  invalid 0/81
+drow < 0: PFA-SOS slope 0.369-0.430 LOOCV 0.49-0.86 | Full-SOS slope 0.392-0.428 LOOCV 0.67-0.92 | distance 8.0-8.4 mm (drow -1), 5.3-5.9 mm (drow -2) | magnitude 0.79-0.96
+
+SINGLE-MEASUREMENT PFA PRECISION (2025-04-25 2b scans, two back-to-back PFA blocks; data/rev_2b_blocks.mat)
+MIDs [571 577 583 589 595 601 607 613 619]; r = (A1-A2)/m - (T1-T2), m = PFA-SOS common slope 0.4472
+single-measurement SD 0.314 degC (36 pairs), per ROI [0.231 0.277 0.252 0.417 ]; mean r -0.043; SD of the difference 0.444; probe change between blocks 0.00-0.12 degC
+block 1 as a PFA calibration: slopes [0.442 0.413 0.493 0.434 ] R2 [0.899 0.911 0.865 0.963 ] CV 7.6% common 0.4448 CI [0.3381, 0.5487]; LOOCV RMSE [0.81 0.92 1.17 0.58 ] overall 0.89
+  MID 571: T block 1 [44.021 43.331 43.690 43.900 ] block 2 [43.900 43.207 43.600 43.848 ] degC; T2app block 1 [56.833 50.394 57.600 60.861 ] block 2 [56.494 50.256 57.539 61.256 ] ms; r [+0.637 +0.186 +0.047 -0.934 ]
+  MID 577: T block 1 [43.310 42.524 42.800 42.900 ] block 2 [43.300 42.490 42.745 42.862 ] degC; T2app block 1 [55.939 49.361 56.433 60.178 ] block 2 [56.078 49.650 56.394 60.339 ] ms; r [-0.321 -0.680 +0.032 -0.398 ]
+  MID 583: T block 1 [42.600 41.600 41.900 41.900 ] block 2 [42.527 41.600 41.840 41.840 ] degC; T2app block 1 [55.772 49.183 55.744 59.867 ] block 2 [55.533 48.883 55.683 60.089 ] ms; r [+0.461 +0.671 +0.077 -0.557 ]
+  MID 589: T block 1 [42.000 40.800 41.100 41.107 ] block 2 [41.928 40.710 41.100 41.010 ] degC; T2app block 1 [55.944 49.333 56.156 59.644 ] block 2 [55.933 49.283 55.844 59.433 ] ms; r [-0.048 +0.022 +0.696 +0.375 ]
+  MID 595: T block 1 [41.152 39.707 40.200 40.000 ] block 2 [41.100 39.700 40.200 40.000 ] degC; T2app block 1 [54.800 48.133 54.733 58.861 ] block 2 [54.633 48.344 54.656 59.078 ] ms; r [+0.321 -0.479 +0.174 -0.484 ]
+  MID 601: T block 1 [40.443 38.900 39.400 39.200 ] block 2 [40.400 38.900 39.317 39.200 ] degC; T2app block 1 [54.678 48.094 54.583 58.539 ] block 2 [54.667 48.217 54.633 58.722 ] ms; r [-0.018 -0.273 -0.195 -0.410 ]
+  MID 607: T block 1 [39.859 38.300 38.800 38.545 ] block 2 [39.800 38.262 38.697 38.500 ] degC; T2app block 1 [54.606 48.033 54.478 58.356 ] block 2 [54.656 48.011 54.733 58.217 ] ms; r [-0.170 +0.012 -0.675 +0.266 ]
+  MID 613: T block 1 [39.200 37.600 38.038 37.900 ] block 2 [39.200 37.600 38.000 37.900 ] degC; T2app block 1 [54.422 47.511 54.339 57.878 ] block 2 [54.211 47.506 54.283 58.367 ] ms; r [+0.472 +0.012 +0.086 -1.093 ]
+  MID 619: T block 1 [38.580 36.900 37.350 37.237 ] block 2 [38.500 36.900 37.300 37.200 ] degC; T2app block 1 [54.372 47.667 54.439 58.217 ] block 2 [54.250 47.744 54.411 57.922 ] ms; r [+0.193 -0.174 +0.012 +0.622 ]
