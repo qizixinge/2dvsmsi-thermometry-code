@@ -28,7 +28,7 @@ Put raw files into `data/` or point `VSMSI_RAW_DIR` to their folder.
 
 - MATLAB R2023a (used for the paper) with the Statistics and Machine Learning Toolbox and the Image Processing Toolbox. Other releases are untested; record the output of `ver` with a reproduction attempt.
 - Python 3.12 with `pip install -r tests/requirements.txt` (numpy, scipy, h5py) for the independent verification.
-- Pulseq MATLAB toolbox (https://github.com/pulseq/pulseq), only to run the scripts in `sequence/` or `code/supporting_analyses/rev_readout_fov.m`. It is not bundled, and the exact version used for the scanned sequences was not recorded. The scripts use `mr.opts` with `GradUnit`, `mr.makeExtendedTrapezoid`, `mr.makeAdc` and `seq.write`, so a Pulseq 1.3 or later release is expected.
+- Pulseq MATLAB toolbox (https://github.com/pulseq/pulseq), only to run the scripts in `sequence/` or `code/supporting_analyses/rev_readout_fov.m`. Its `+mr` package (file format v1.4), copied from the local copy used to write the scanned sequences, is bundled in `third_party/pulseq/matlab`; add that folder to the MATLAB path before running `sequence/`.
 
 ## Quick start
 
@@ -73,7 +73,7 @@ Every result number in the paper is a LaTeX macro written by the code (`numbers.
 | GRE time-point residual, GRE sensitivity | `rev_gre_timepoint_residual.m`, `rev_gre_calibration_sensitivity.m` | `numbers_gre_residual.tex`, `numbers_gre_sensitivity.tex` |
 | SNR (pseudo-replica) | `rev_pseudoreplica.m`, `rev_pseudoreplica_analysis.m`, `rev_write_dependence_summary.m` (raw data needed) | `numbers_snr.tex`, `data/noise_dependence_summary.mat` |
 | Single-measurement PFA precision (2b blocks) | `rev_2b_precision.m` (raw data needed), then `statistics_analysis_final.m` | `data/rev_2b_blocks.mat`, `numbers.tex` |
-| Readout field of view (265.8 mm) | `rev_readout_fov.m` (Pulseq; `.seq` files written by `sequence/`) | console output, `output/supporting/readout_fov.mat` |
+| Readout field of view (265.8 mm) | `rev_readout_fov.m` (bundled Pulseq; scanned `.seq` files in `sequence/`) | console output, `output/supporting/readout_fov.mat` |
 | Fig. 1 (photograph), Fig. 2 (drawing) | not code outputs | not included |
 
 Analysis conventions in brief: nine time points; calibration and LOOCV use all nine; temperature-change maps and Bland-Altman analyses use time points 3-9; uncertainty is descriptive (coefficient of variation) with cluster-bootstrap confidence intervals, including intervals of the overall LOOCV RMSE; the primary LOOCV calibrates each ROI separately and a secondary common-coefficient LOOCV (the model used for the maps) is also reported; the PFA-Full difference is a paired comparison; B0 for the PRF conversion comes from the DICOM header (ImagingFrequency 123.251054 MHz); the GRE echo-time difference is 2.46 ms (`code/gre_params.m`). See `REPRODUCIBILITY.md`.
@@ -84,11 +84,11 @@ Analysis conventions in brief: nine time points; calibration and LOOCV use all n
 |---|---|
 | `code/` | Reconstruction (`reconstruct_all.m`, `MAP.m`, `dataprocessing.m`, `dataSOS.m`, `pocsnew.m`, `RDNLS.m`), probe temperatures (`build_probe_temperatures.m`), PRF (`PRFreconnew.m`, `gre_params.m`), calibration (`tempfitT2old.m`), `analysis_geometry.m`, `statistics_analysis_final.m`, `paper_figure.m`, `project_paths.m` (single place for all paths) |
 | `code/supporting_analyses/` | Scripts that produce reported numbers: GRE residual and sensitivity, pseudo-replica SNR, reconstruction check, readout FOV |
-| `sequence/` | Pulseq writers of the two 2DVSMSI protocols (`writemy4TE1b_100_SHARE_full.m`, `write4TE1b_100_SHARE_pocs.m`) |
+| `sequence/` | Pulseq writers of the two 2DVSMSI protocols (`writemy4TE1b_100_SHARE_full.m`, `write4TE1b_100_SHARE_pocs.m`) and the two scanned `.seq` files (`writemy4TE1b_100_SHARE_full.seq`, `writemy4TE1b_100_SHARE_pocs06.seq`) |
 | `data/` | Derived inputs and GRE DICOM files (see below) |
 | `results/` | Reference outputs of the paper |
 | `tests/` | `verify_statistics.py`, MATLAB POCS tests, `requirements.txt` |
-| `third_party/` | `mapVBVD/` (MIT) and `pocs/` (BSD 2-clause original and a notice on the modified `pocsnew.m`) |
+| `third_party/` | `mapVBVD/` (MIT), `pocs/` (BSD 2-clause original and a notice on the modified `pocsnew.m`) and `pulseq/` (MIT; the `+mr` package of the Pulseq MATLAB toolbox) |
 
 ## Data
 
@@ -108,7 +108,7 @@ De-identification of the GRE DICOM files: Patient's Name and ID were replaced by
 
 ## Third-party code
 
-`third_party/mapVBVD/` (Philipp Ehses and contributors, MIT licence, https://github.com/pehses/mapVBVD) reads Siemens twix files. `code/pocsnew.m` derives from Michael Völker's POCS implementation (BSD 2-clause); see `third_party/pocs/`. The MIT licence in `LICENSE` covers the authors' own code and the released derived data (the `.mat` files, `results/` and the de-identified GRE DICOM files); third-party code keeps its own licences.
+`third_party/mapVBVD/` (Philipp Ehses and contributors, MIT licence, https://github.com/pehses/mapVBVD) reads Siemens twix files. `third_party/pulseq/` (Pulseq authors listed in its `AUTHORS`, MIT licence, https://github.com/pulseq/pulseq) provides the `+mr` package used by `sequence/` and `rev_readout_fov.m`. `code/pocsnew.m` derives from Michael Völker's POCS implementation (BSD 2-clause); see `third_party/pocs/`. The MIT licence in `LICENSE` covers the authors' own code and the released derived data (the `.mat` files, `results/` and the de-identified GRE DICOM files); third-party code keeps its own licences.
 
 ## Use of generative AI
 

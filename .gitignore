@@ -1,7 +1,9 @@
 # regenerated outputs (reference outputs are in results/)
 output/
-# Pulseq scanner files written by sequence/*.m
+# Pulseq scanner files written by sequence/*.m (the two scanned protocols are tracked)
 *.seq
+!sequence/writemy4TE1b_100_SHARE_full.seq
+!sequence/writemy4TE1b_100_SHARE_pocs06.seq
 # MATLAB autosave / crash dumps
 *.asv
 matlab_crash_dump.*

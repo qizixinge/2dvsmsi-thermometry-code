@@ -14,7 +14,7 @@ Four ROIs were positioned adjacent to the fluoroptic probes on the native grid o
 
 ## Software environment
 
-The paper analysis was run with MATLAB R2023a, using the Statistics and Machine Learning Toolbox and the Image Processing Toolbox. Python 3.12 (numpy, scipy, h5py; `tests/requirements.txt`) is used for the independent verification. The Pulseq MATLAB toolbox is needed only for `sequence/` and `rev_readout_fov.m` and is not bundled. Record `version` and `ver` with a reproduction attempt; binary-identical output across environments is not assumed.
+The paper analysis was run with MATLAB R2023a, using the Statistics and Machine Learning Toolbox and the Image Processing Toolbox. Python 3.12 (numpy, scipy, h5py; `tests/requirements.txt`) is used for the independent verification. The Pulseq MATLAB toolbox is needed only for `sequence/` and `rev_readout_fov.m`; its `+mr` package is bundled in `third_party/pulseq/matlab`, and the two scanned `.seq` files are in `sequence/`. Record `version` and `ver` with a reproduction attempt; binary-identical output across environments is not assumed.
 
 ## Directory configuration
 
