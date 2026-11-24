@@ -112,7 +112,7 @@ De-identification of the GRE DICOM files: Patient's Name and ID were replaced by
 
 ## Use of generative AI
 
-Parts of the code were developed with the assistance of generative AI tools (Anthropic Claude, used through Cursor; OpenAI ChatGPT/Codex) and were reviewed by the authors.
+Parts of the code were developed with the assistance of generative AI tools (Anthropic Claude Code; OpenAI ChatGPT/Codex) and were reviewed by the authors.
 
 ## Contact
 
