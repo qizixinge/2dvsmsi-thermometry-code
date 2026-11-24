@@ -48,7 +48,7 @@ then in a shell:
 py -3.12 -I tests/verify_statistics.py     # independent check of the MATLAB results
 ```
 
-It prints "PASS: 137 independently recomputed checks + 13 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header, Grubbs error variances and Deming slopes); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
+It prints "PASS: 162 independently recomputed checks + 14 consistency checks" (current counts): the first group recomputes values from the inputs (probe temperatures of all 27 acquisition windows from the 1 Hz log, per-ROI and common-coefficient LOOCV, slopes, R², bootstrap intervals, in-sample SDs, B0 and echo times from the DICOM header, triple-collocation (Grubbs-type) error variances and Deming slopes, the same-time-point comparison, the remote-PRF calibration, the ROI II position sensitivity and the repeated-PFA precision); the second compares a value stored in one file with its copy in another (for example the LaTeX macros against the .mat file).
 
 Four scripts overwrite derived files in `data/` in place (`code/build_probe_temperatures.m`, `code/supporting_analyses/rev_write_dependence_summary.m`, `code/supporting_analyses/rev_2b_precision.m`, `code/reconstruct_all.m`); see REPRODUCIBILITY.md, section "Scripts that overwrite derived files", and keep a copy of `data/` before rerunning them.
 
