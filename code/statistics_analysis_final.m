@@ -1364,8 +1364,21 @@ for r = 1:nr
     for k = 1:n_roi
         nexttile((r-1)*4 + k);
         x = Tp(:,k);  y = Y(:,k)*sc;  e = SD(:,k)*sc;
-        errorbar(x, y, e, 'r.', 'MarkerSize', 11, 'LineWidth', 0.9); hold on;
+        is_gre = (sc == 1e8);
         xf = linspace(36, 45, 20);
+        if is_gre
+            % Time point 2: its GRE phase deviated from the cooling trend (excluded from the
+            % cross-modality comparison).  Open marker; the red dashed line still fits all nine
+            % time points (Table I), the grey line omits time point 2 (= GreSens* macros).
+            o = true(size(x)); o(2) = false;
+            errorbar(x(o), y(o), e(o), 'r.', 'MarkerSize', 11, 'LineWidth', 0.9); hold on;
+            errorbar(x(2), y(2), e(2), 'o', 'Color', 'r', 'MarkerSize', 4.5, 'MarkerFaceColor', 'w', 'LineWidth', 0.9);
+            p2 = polyfit(x(o), y(o), 1);
+            plot(xf, polyval(p2, xf), '-', 'Color', [0.45 0.45 0.45], 'LineWidth', 1.0);
+            fprintf('Fig4 GRE ROI %s: alpha without time point 2 = %.3f x1e-8/degC\n', roman(k), p2(1));
+        else
+            errorbar(x, y, e, 'r.', 'MarkerSize', 11, 'LineWidth', 0.9); hold on;
+        end
         plot(xf, b(k)*sc*(xf-mean(x)) + mean(y), 'r--', 'LineWidth', 1.1);
         xlim([36 46]);
         if sc == 1e8 && (k == 2 || k == 3), ylim([-40 40]); elseif sc == 1e8, ylim([-6 6]); else, ylim([-3 3]); end  % Ds rows scaled x5/2.46 vs old ([-20 20]/[-3 3]) after the dTE fix
@@ -1375,6 +1388,10 @@ for r = 1:nr
             txt = sprintf('m_{2,app} = %.2f ms/\\circC\nR^2 = %.3f', b(k), ft.r2(k));
         end
         yl = ylim; text(36.3, yl(1)+0.84*diff(yl), txt, 'FontSize', 7.5, 'Interpreter','tex');
+        if is_gre
+            text(36.3, yl(1)+0.71*diff(yl), sprintf('without time point 2: \\alpha = %.2f', p2(1)), ...
+                'FontSize', 7.5, 'Interpreter','tex', 'Color', [0.45 0.45 0.45]);
+        end
         if k == 1, ylabel(ylab, 'FontSize', 10); end
         if r == nr, xlabel('Probe temperature (\circC)', 'FontSize', 10); end
         title(sprintf('%s  ROI %s', nm, roman(k)), 'FontSize', 9);
