@@ -85,6 +85,8 @@
 %   * S5b same-subset LOOCV without time point 2 (GRE vs 2DVSMSI on the same time points), near/remote pooled.
 %   * S5c far-to-near calibration with the real GRE PRF signal at ROIs I/IV (literature alpha, no probe) -> ROIs II/III.
 %   * S5d ROI II position sensitivity (3x3 window shifted towards the rod end).
+%   * S5f (2026-11-27) ROI neighbourhood: every 3x3 ROI shifted by up to 2 voxels; CV, LOOCV RMSE and common-slope
+%     LOOCV over all combinations; archived position ranked (tests/NBR_SPEC.md, tests/nbr_check.py).
 %   * S5e single-measurement PFA precision from the back-to-back 2b blocks (data/rev_2b_blocks.mat,
 %     code/supporting_analyses/rev_2b_precision.m) and block 1 as a second PFA calibration.
 %
@@ -97,7 +99,7 @@
 %       Figure S1 MIP calibration curves
 %   S4  Figure 5  dT maps (NaN outside valid mask)     + Figure S2 absolute T
 %   S5  Figure S3 Bland-Altman on dT (bias + LOA only)
-%   S5b-e same-subset LOOCV, far-to-near calibration, ROI II position, 2b precision
+%   S5b-f same-subset LOOCV, far-to-near calibration, ROI II position, 2b precision, ROI neighbourhood
 %   S6  text blocks and .mat of the results
 %   S7  LaTeX macros (numbers.tex)
 %
@@ -862,6 +864,41 @@ if PREC.available
 end
 
 %% ========================================================================
+%  S5f  ROI NEIGHBOURHOOD (HOW MUCH DO THE RESULTS DEPEND ON THE EXACT ROI POSITION?)
+%% ========================================================================
+% The ROIs were placed mainly by probe location; minor placement choices also considered calibration RMSE and
+% between-ROI slope consistency without a predefined rule.  To show how much this can matter, every 3x3 ROI window is
+% shifted by (dr,dc) in -2..2 voxels on its own grid and the per-ROI slope and LOOCV RMSE are recomputed with the same
+% routines as S1/S2.  A shifted window is kept only by rules that do not use the probe temperatures: inside the image,
+% no overlap with the rod box, and (2DVSMSI) all nine voxels finite and > 0 at all time points in that variant's map.
+% For every combination of one kept window per ROI: between-ROI slope CV, overall LOOCV RMSE and common-slope LOOCV
+% RMSE (radius 1), CV only for radius 2.  The archived position is ranked within these sets.  Specification:
+% tests/NBR_SPEC.md; independent re-computation: tests/nbr_check.py (called by tests/verify_statistics.py).
+fprintf('\n---- S5f ROI neighbourhood ----\n');
+NBR = roi_neighbourhood(T2MAP, T2MAPsos, phaseMAPr, {oil1,oil2,oil3,oil4}, {temprp1,temp1,temp3,temp1,temp3}, ...
+    {CPRF, C2D, C2D_full, C2D, C2D_full}, {geometry.rod_128, geometry.rod_100}, n_tp);
+% acceptance: the archived windows reproduce S1/S2 exactly
+ref_sl_ = {ALPHA_PAPER*1e8, m2_p_sos, m2_f_sos, m2_p_mip, m2_f_mip};
+i0_ = find(NBR.off == 0);
+for v_ = 1:5
+    assert(max(abs(NBR.slope(v_,:,i0_,i0_) - ref_sl_{v_}(:)'), [], 'all') < 1e-9 && ...
+        max(abs(NBR.rmse(v_,:,i0_,i0_) - loocv_rmse(v_,:)), [], 'all') < 1e-9 && all(NBR.valid(v_,:,i0_,i0_)), 'stats:NbrArchived', ...
+        '%s: the unshifted windows do not reproduce the S1/S2 slopes/LOOCV or are not kept. Fix: check roi_neighbourhood against tempfitT2old/PRFreconnew.', NBR.names{v_});
+end
+for q_ = 1:4
+    assert(abs(NBR.crms0(q_) - sqrt(mean(common_rmse(q_,:).^2))) < 1e-9 && abs(NBR.cv0(q_) - 100*std(ref_sl_{q_+1})/abs(mean(ref_sl_{q_+1}))) < 1e-9, ...
+        'stats:NbrCommon', '%s: the archived combination does not reproduce the CV / common-slope LOOCV. Fix: check roi_neighbourhood.', NBR.names{q_+1});
+end
+for q_ = 1:4
+    fprintf('%-9s radius 1, %d combinations: CV %.1f (median %.1f, pct %.0f)  RMS %.2f (median %.2f, pct %.0f)  common RMS %.2f (median %.2f, pct %.0f) | radius 2 CV median %.1f\n', ...
+        NBR.names{q_+1}, numel(NBR.cv{q_}), NBR.cv0(q_), median(NBR.cv{q_}), NBR.cv_pct(q_), NBR.rms0(q_), median(NBR.rms{q_}), NBR.rms_pct(q_), ...
+        NBR.crms0(q_), median(NBR.crms{q_}), NBR.crms_pct(q_), NBR.cv_med_two(q_));
+end
+fprintf('SOS CV < MIP CV: radius 1 PFA %.1f%% Full %.1f%% | radius 2 PFA %.1f%% (%d) Full %.1f%% (%d)\n', NBR.sos_lt_mip, NBR.sos_lt_mip_two(1), ...
+    NBR.n_comb_two(1), NBR.sos_lt_mip_two(2), NBR.n_comb_two(2));
+fprintf('GRE per-ROI LOOCV RMSE, radius 1: median %s, archived rank %s\n', strtrim(sprintf('%.2f ',NBR.gre_med)), strtrim(sprintf('%d ',NBR.gre_rank)));
+
+%% ========================================================================
 %  S6  TEXT BLOCKS + .mat OF THE RESULTS
 %% ========================================================================
 out = fullfile(OUT_DIR,'statistics_results_final.txt');
@@ -980,6 +1017,13 @@ if PREC.available
 else
     fprintf(fid,'not available: data/rev_2b_blocks.mat missing (run code/supporting_analyses/rev_2b_precision.m)\n');
 end
+fprintf(fid,'\nROI NEIGHBOURHOOD (S5f; each 3x3 ROI shifted by up to 1 voxel = 9 windows, %d combinations; radius 2 for CV)\n', NBR.n_comb);
+for q_ = 1:4
+    fprintf(fid,'%-9s CV %.1f (median %.1f, pct %.0f); overall LOOCV RMSE %.2f (median %.2f, pct %.0f); common-slope LOOCV RMSE %.2f (median %.2f, pct %.0f); radius-2 CV median %.1f\n', ...
+        NBR.names{q_+1}, NBR.cv0(q_), median(NBR.cv{q_}), NBR.cv_pct(q_), NBR.rms0(q_), median(NBR.rms{q_}), NBR.rms_pct(q_), NBR.crms0(q_), median(NBR.crms{q_}), NBR.crms_pct(q_), NBR.cv_med_two(q_));
+end
+fprintf(fid,'SOS CV < MIP CV (same windows): radius 1 PFA %.1f%%, Full %.1f%%; radius 2 PFA %.1f%% of %d, Full %.1f%% of %d\n', NBR.sos_lt_mip, NBR.sos_lt_mip_two(1), NBR.n_comb_two(1), NBR.sos_lt_mip_two(2), NBR.n_comb_two(2));
+fprintf(fid,'GRE per-ROI LOOCV RMSE over the 9 windows: median %s; rank of the archived window (1 = lowest) %s\n', strtrim(sprintf('%.2f ',NBR.gre_med)), strtrim(sprintf('%d ',NBR.gre_rank)));
 fclose(fid);
 
 %% ========================================================================
@@ -1162,6 +1206,20 @@ end
 for i_ = 1:size(prec_,1)
     if PREC.available, M = addm(M,prec_{i_,1},prec_{i_,2},prec_{i_,3}); else, M = adds(M,prec_{i_,1},'NaN'); end
 end
+% ROI neighbourhood (S5f); archived values are the Cv*, RmsOverall*, RmsOverallCommon* and Rmse* macros above
+M = addm(M,'NbrNumWin','%d',NBR.n_win);  M = addm(M,'NbrNumComb','%d',NBR.n_comb);
+for q_ = 1:4
+    M = addm(M,['NbrCvMed' key4{q_}],'%.1f',median(NBR.cv{q_}));          M = addm(M,['NbrCvPct' key4{q_}],'%.0f',NBR.cv_pct(q_));
+    M = addm(M,['NbrRmsMed' key4{q_}],'%.2f',median(NBR.rms{q_}));        M = addm(M,['NbrRmsPct' key4{q_}],'%.0f',NBR.rms_pct(q_));
+    M = addm(M,['NbrCommonRmsMed' key4{q_}],'%.2f',median(NBR.crms{q_})); M = addm(M,['NbrCommonRmsPct' key4{q_}],'%.0f',NBR.crms_pct(q_));
+    M = addm(M,['NbrCvMedTwo' key4{q_}],'%.1f',NBR.cv_med_two(q_));
+end
+M = addm(M,'NbrSosLtMipPfa','%.0f',NBR.sos_lt_mip(1));          M = addm(M,'NbrSosLtMipFull','%.0f',NBR.sos_lt_mip(2));
+M = addm(M,'NbrSosLtMipTwoPfa','%.0f',NBR.sos_lt_mip_two(1));   M = addm(M,'NbrSosLtMipTwoFull','%.0f',NBR.sos_lt_mip_two(2));
+M = addm(M,'NbrNumCombTwoPfa','%d',NBR.n_comb_two(1));          M = addm(M,'NbrNumCombTwoFull','%d',NBR.n_comb_two(2));
+for k = 1:4
+    M = addm(M,['NbrGreRmseMed' roiN{k}],'%.2f',NBR.gre_med(k));  M = addm(M,['NbrGreRank' roiN{k}],'%d',NBR.gre_rank(k));
+end
 write_numbers(fullfile(OUT_DIR,'numbers.tex'), M);
 fprintf('wrote numbers.tex (%d macros)\n', numel(M));
 
@@ -1176,7 +1234,7 @@ save(fullfile(OUT_DIR,'statistics_results_final.mat'), ...
     'mk_pfa','mk_full','mk_prf','Tref_pfa','Tref_full','Tref_prf','SEED','NB','TP_CMP','BA_TPS','BA_tp','n_vox','DEM_pfa','DEM_pfa_ci','DEM_full','DEM_full_ci', ...
     'a','b','p','DEM_errvar','DEM_lam','DEMeq_pfa','DEMeq_pfa_ci','DEMeq_full','DEMeq_full_ci','DEMols_pfa','DEMols_pfa_ci','DEMols_full','DEMols_full_ci','DEMalt_lam', ...
     'common_rmse','common_errors','boot_names','boot_rmse','boot_ci','sd_fit_roi','sd_fit_common','thr_pct','ref_check','REF_ALT','n_tp','M','cool_min','temp_step','fs_', ...
-    'SUB','SUB_TPS','FAR','FAR_GRE','FAR_SENS','ALPHA_LIT','FAR_CAL_LAST','POS','POS_DR','POS_DC','POS_RANGE','PREC');
+    'SUB','SUB_TPS','FAR','FAR_GRE','FAR_SENS','ALPHA_LIT','FAR_CAL_LAST','POS','POS_DR','POS_DC','POS_RANGE','PREC','NBR');
 fprintf('\nwrote TBME figures to\n  %s\nand statistics_results_final.txt / .mat to\n  %s\n', FIG_DIR, OUT_DIR);
 
 %% ========================================================================
@@ -1660,4 +1718,119 @@ Y1 = B.A1 - mean(B.A1,1);                 % deviation from the time mean (the RO
 E = loocv_err(Y1, B.T1);
 P.b1_slopes = sl;  P.b1_r2 = rf.r2;  P.b1_cv = 100*std(sl)/mean(sl);  P.b1_common = mc;  P.b1_ci = ci;
 P.b1_errors = E;  P.b1_rmse = sqrt(mean(E.^2,1));  P.b1_rmse_overall = sqrt(mean(P.b1_rmse.^2));
+end
+
+function NBR = roi_neighbourhood(T2MAP, T2MAPsos, phaseMAPr, oil, Tp, ctr, rod, n_tp)
+% S5f.  Variants 1..5 = GRE, PFA-SOS, Full-SOS, PFA-MIP, Full-MIP.  Tp{v} = 9x4 probe temperatures, ctr{v} = 4x2 archived
+% 3x3 centres on the variant's grid, rod = {rod_128, rod_100} as [R1 R2 C1 C2].  Definitions: tests/NBR_SPEC.md.
+names = {'GRE','PFA-SOS','Full-SOS','PFA-MIP','Full-MIP'};
+maps  = {[], T2MAPsos(:,:,:,1), T2MAPsos(:,:,:,3), T2MAP(:,:,:,1), T2MAP(:,:,:,3)};
+OFF = -2:2;  nO = numel(OFF);
+slope = nan(5,4,nO,nO);  rmse = nan(5,4,nO,nO);  valid = false(5,4,nO,nO);  Y = nan(n_tp,5,4,nO,nO);
+for v = 1:5
+    if v == 1, N = size(phaseMAPr,1); rb = rod{1}; else, N = size(maps{v},1); rb = rod{2}; end
+    for i = 1:nO
+        for j = 1:nO
+            c = ctr{v} + [OFF(i) OFF(j)];
+            inside = all(c-1 >= 1 & c+1 <= N, 2);
+            cc = c;  cc(~inside,:) = ctr{v}(~inside,:);            % placeholder centre; such windows are not kept
+            sr = arrayfun(@(k) repmat(cc(k,:), n_tp, 1), 1:4, 'uni', 0);
+            if v == 1
+                [MNSp_,~,~,~,~,alpham_] = PRFreconnew(phaseMAPr, sr{:}, Tp{v}, oil{:});
+                y4 = -MNSp_;  s4 = -alpham_*1e8;                      % 1e-8/degC
+            else
+                [y4,~,~,~,~,s4] = tempfitT2old(maps{v}, sr{:}, Tp{v});
+            end
+            e4 = loocv_err(y4, Tp{v});
+            for k = 1:4
+                if ~inside(k), continue; end
+                rr = c(k,1)+(-1:1);  cl = c(k,2)+(-1:1);
+                ok = ~(any(rr >= rb(1) & rr <= rb(2)) && any(cl >= rb(3) & cl <= rb(4)));
+                if v > 1
+                    w = maps{v}(rr, cl, :);  ok = ok && all(isfinite(w(:)) & w(:) > 0);
+                end
+                if ~ok, continue; end
+                valid(v,k,i,j) = true;  slope(v,k,i,j) = s4(k);  rmse(v,k,i,j) = sqrt(mean(e4(:,k).^2));  Y(:,v,k,i,j) = y4(:,k);
+            end
+        end
+    end
+end
+i0 = find(OFF == 0);
+pct = @(x,x0) 100*(nnz(x < x0) + 0.5*(nnz(x == x0)-1))/max(numel(x)-1,1);
+sel1 = find(abs(OFF) <= 1);
+% GRE per ROI, radius 1
+gre_med = zeros(1,4);  gre_pct = zeros(1,4);  gre_rank = zeros(1,4);
+for k = 1:4
+    vk = squeeze(valid(1,k,sel1,sel1));  r = squeeze(rmse(1,k,sel1,sel1));  r = r(vk);
+    assert(numel(r) == numel(sel1)^2, 'stats:NbrGreWindows', 'GRE ROI %d keeps %d of %d radius-1 windows. Fix: report the kept count instead of "of nine".', k, numel(r), numel(sel1)^2);
+    gre_med(k) = median(r);  gre_pct(k) = pct(r, rmse(1,k,i0,i0));  gre_rank(k) = 1 + nnz(r < rmse(1,k,i0,i0));   % 1 = lowest RMSE
+end
+% 2DVSMSI combinations, radius 1 (all quantities) and radius 2 (CV only)
+cv = cell(1,4);  rms_ = cell(1,4);  crms = cell(1,4);
+cv0 = zeros(1,4);  rms0 = zeros(1,4);  crms0 = zeros(1,4);  cv_pct = zeros(1,4);  rms_pct = zeros(1,4);  crms_pct = zeros(1,4);
+cv_med_two = zeros(1,4);  n_win = zeros(4,4);
+for q = 1:4
+    v = q + 1;
+    [L, A, q0] = combos(valid, v, sel1, i0);
+    n_win(q,:) = cellfun(@(x) size(x,1), L);
+    S = zeros(size(A));  R = zeros(size(A));  crm = zeros(size(A,1),1);
+    for k = 1:4
+        S(:,k) = arrayfun(@(a) slope(v,k,L{k}(a,1),L{k}(a,2)), A(:,k));
+        R(:,k) = arrayfun(@(a) rmse(v,k,L{k}(a,1),L{k}(a,2)), A(:,k));
+    end
+    for c_ = 1:size(A,1)
+        Yq = zeros(n_tp,4);
+        for k = 1:4, Yq(:,k) = Y(:,v,k,L{k}(A(c_,k),1),L{k}(A(c_,k),2)); end
+        ec = loocv_common(Yq, Tp{v});  crm(c_) = sqrt(mean(ec.^2,'all'));
+    end
+    cv{q} = 100*std(S,0,2)./abs(mean(S,2));  rms_{q} = sqrt(mean(R.^2,2));  crms{q} = crm;
+    cv0(q) = cv{q}(q0);  rms0(q) = rms_{q}(q0);  crms0(q) = crm(q0);
+    cv_pct(q) = pct(cv{q}, cv0(q));  rms_pct(q) = pct(rms_{q}, rms0(q));  crms_pct(q) = pct(crm, crms0(q));
+    [L2, A2] = combos(valid, v, 1:nO, i0);
+    cv_med_two(q) = median(combo_cv(slope, v, L2, A2));
+end
+assert(all(n_win(:) == numel(sel1)^2), 'stats:NbrWindows', ...
+    'Not every radius-1 window is kept for the 2DVSMSI variants (kept per ROI: %s). Fix: report the kept counts instead of NbrNumWin.', mat2str(n_win));
+% SOS versus MIP on the same windows (PFA: 2 vs 4, Full: 3 vs 5)
+sos_lt_mip = zeros(1,2);  sos_lt_mip_two = zeros(1,2);  n_comb_two = zeros(1,2);
+for a = 1:2
+    vs = a + 1;  vm = a + 3;
+    both = valid;  both(vs,:,:,:) = valid(vs,:,:,:) & valid(vm,:,:,:);
+    [L1, A1] = combos(both, vs, sel1, i0);
+    sos_lt_mip(a) = 100*mean(combo_cv(slope, vs, L1, A1) < combo_cv(slope, vm, L1, A1));
+    [L2, A2] = combos(both, vs, 1:nO, i0);
+    sos_lt_mip_two(a) = 100*mean(combo_cv(slope, vs, L2, A2) < combo_cv(slope, vm, L2, A2));
+    n_comb_two(a) = size(A2,1);
+end
+NBR = struct('names',{names},'off',OFF,'slope',slope,'rmse',rmse,'valid',valid, 'cv',{cv},'rms',{rms_},'crms',{crms}, ...
+    'cv0',cv0,'rms0',rms0,'crms0',crms0,'cv_pct',cv_pct,'rms_pct',rms_pct,'crms_pct',crms_pct,'cv_med_two',cv_med_two, ...
+    'n_win',numel(sel1)^2,'n_comb',numel(cv{1}),'sos_lt_mip',sos_lt_mip,'sos_lt_mip_two',sos_lt_mip_two,'n_comb_two',n_comb_two, ...
+    'gre_med',gre_med,'gre_pct',gre_pct,'gre_rank',gre_rank);
+end
+
+function [L, A, q0] = combos(valid, v, sel, i0)
+% Kept windows per ROI (offset index pairs within sel) and all combinations of one window per ROI (ROI I fastest).
+L = cell(1,4);
+for k = 1:4
+    [ii,jj] = ndgrid(sel, sel);  idx = [ii(:) jj(:)];
+    keep = arrayfun(@(q) valid(v,k,idx(q,1),idx(q,2)), 1:size(idx,1));
+    L{k} = idx(keep,:);
+end
+nk = cellfun(@(x) size(x,1), L);
+[a1,a2,a3,a4] = ndgrid(1:nk(1), 1:nk(2), 1:nk(3), 1:nk(4));
+A = [a1(:) a2(:) a3(:) a4(:)];
+q0 = [];
+if nargout > 2
+    ix0 = arrayfun(@(k) find(L{k}(:,1) == i0 & L{k}(:,2) == i0), 1:4);
+    q0 = find(all(A == ix0, 2));
+end
+end
+
+function c = combo_cv(slope, v, L, A)
+S = zeros(size(A));
+for k = 1:4
+    s_k = arrayfun(@(a) slope(v,k,L{k}(a,1),L{k}(a,2)), 1:size(L{k},1));
+    S(:,k) = s_k(A(:,k));
+end
+c = 100*std(S,0,2)./abs(mean(S,2));
 end

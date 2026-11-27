@@ -141,3 +141,11 @@ block 1 as a PFA calibration: slopes [0.442 0.413 0.493 0.434 ] R2 [0.899 0.911 
   MID 607: T block 1 [39.859 38.300 38.800 38.545 ] block 2 [39.800 38.262 38.697 38.500 ] degC; T2app block 1 [54.606 48.033 54.478 58.356 ] block 2 [54.656 48.011 54.733 58.217 ] ms; r [-0.170 +0.012 -0.675 +0.266 ]
   MID 613: T block 1 [39.200 37.600 38.038 37.900 ] block 2 [39.200 37.600 38.000 37.900 ] degC; T2app block 1 [54.422 47.511 54.339 57.878 ] block 2 [54.211 47.506 54.283 58.367 ] ms; r [+0.472 +0.012 +0.086 -1.093 ]
   MID 619: T block 1 [38.580 36.900 37.350 37.237 ] block 2 [38.500 36.900 37.300 37.200 ] degC; T2app block 1 [54.372 47.667 54.439 58.217 ] block 2 [54.250 47.744 54.411 57.922 ] ms; r [+0.193 -0.174 +0.012 +0.622 ]
+
+ROI NEIGHBOURHOOD (S5f; each 3x3 ROI shifted by up to 1 voxel = 9 windows, 6561 combinations; radius 2 for CV)
+PFA-SOS   CV 8.7 (median 12.5, pct 13); overall LOOCV RMSE 0.64 (median 0.68, pct 24); common-slope LOOCV RMSE 0.66 (median 0.72, pct 15); radius-2 CV median 15.2
+Full-SOS  CV 9.0 (median 11.3, pct 22); overall LOOCV RMSE 0.66 (median 0.75, pct 20); common-slope LOOCV RMSE 0.66 (median 0.74, pct 14); radius-2 CV median 13.2
+PFA-MIP   CV 34.8 (median 31.8, pct 57); overall LOOCV RMSE 0.84 (median 0.83, pct 54); common-slope LOOCV RMSE 1.04 (median 1.07, pct 42); radius-2 CV median 26.7
+Full-MIP  CV 23.4 (median 23.7, pct 47); overall LOOCV RMSE 0.54 (median 0.63, pct 6); common-slope LOOCV RMSE 0.71 (median 0.76, pct 23); radius-2 CV median 22.7
+SOS CV < MIP CV (same windows): radius 1 PFA 96.3%, Full 90.8%; radius 2 PFA 88.8% of 359375, Full 83.2% of 375000
+GRE per-ROI LOOCV RMSE over the 9 windows: median 0.31 15.98 2.30 0.19; rank of the archived window (1 = lowest) 1 3 6 1

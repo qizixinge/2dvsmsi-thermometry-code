@@ -10,6 +10,9 @@ the value recomputed here / stored in statistics_results_final.mat.
 
 2026-11-23: same-subset LOOCV without time point 2, far-to-near calibration with the GRE PRF signal,
 ROI II position sensitivity and the 2b back-to-back PFA precision (data/rev_2b_blocks.mat) recomputed here.
+
+2026-11-27: ROI neighbourhood (every ROI shifted by up to 2 voxels) recomputed by tests/nbr_check.py, an independent
+implementation of tests/NBR_SPEC.md, and compared with the NBR struct and the Nbr* macros.
 """
 from pathlib import Path
 import sys, os
@@ -394,6 +397,14 @@ def loo_roi(y,x):
             a0,b0=np.linalg.lstsq(d,y[tr,j],rcond=None)[0]; e[t,j]=(y[t,j]-a0)/b0-x[t,j]
     return e
 rms=lambda v: float(np.sqrt(np.mean(np.asarray(v,float)**2)))
+# (0) ROI neighbourhood (added 2026-11-27): every 3x3 ROI shifted by up to 2 voxels, recomputed independently from the
+# voxel maps by tests/nbr_check.py (written from tests/NBR_SPEC.md without the MATLAB code) and compared with NBR in the .mat
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from nbr_check import nbr_values, nbr_compare
+assert 'NBR' in s,'statistics_results_final.mat has no NBR struct. Fix: rerun code/statistics_analysis_final.m (section S5f).'
+nbr_macros,nbr_arrays=nbr_values(s,r,sos,mip,-dphase/(B0*2*np.pi*GAMMA_BAR*1e6*dTE),loo_roi)
+E.update(nbr_macros)
+nbr_compare(nbr_arrays,s['NBR'],close)
 # (1) same-subset LOOCV without time point 2, pooled near (II+III) and remote (I+IV)
 SUBT=[0,2,3,4,5,6,7,8]
 for q_,(nm_,key_) in enumerate((('GRE','Gre'),('PFA-SOS','PfaSos'),('Full-SOS','FullSos'))):
